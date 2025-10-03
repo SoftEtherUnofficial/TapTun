@@ -54,8 +54,12 @@ A high-performance, cross-platform TAP/TUN interface library written in Zig with
 - Persistent interface support
 
 #### Windows
-- Uses TAP-Windows adapter (OpenVPN driver)
-- Named adapter support
+- Uses **Wintun** (recommended, modern WireGuard driver)
+  - High performance kernel-mode driver
+  - No TAP-Windows dependency
+  - Simple ring buffer design
+  - Maintained by WireGuard project
+- Fallback to TAP-Windows6 adapter for legacy support
 - Windows Filtering Platform integration
 
 #### FreeBSD
@@ -350,9 +354,15 @@ Contributions welcome! Please see CONTRIBUTING.md for guidelines.
 - Supports both IFF_TUN and IFF_TAP modes
 
 ### Windows
-- Requires TAP-Windows driver installation
-- Download from OpenVPN project
-- Administrator privileges required
+- **Wintun** (recommended):
+  - Download wintun.dll from https://www.wintun.net/
+  - No driver installation required (runtime-loaded DLL)
+  - Administrator privileges required for adapter creation
+  - Significantly better performance than TAP-Windows
+- **TAP-Windows6** (legacy fallback):
+  - Requires driver installation from OpenVPN project
+  - Administrator privileges required
+  - Older, but widely deployed
 
 ### FreeBSD
 - Requires kernel module loaded: `kldload if_tun` or `kldload if_tap`
