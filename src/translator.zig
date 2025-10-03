@@ -20,7 +20,9 @@ pub const L2L3Translator = struct {
     // ARP handling
     arp_handler: ArpHandler,
 
-    // Statistics
+    // ARP reply queue (for replies that need to be sent back to VPN)
+    arp_reply_queue: std.ArrayList([]const u8),
+    pending_arp_ips: std.AutoHashMap(u32, void), // Track IPs with pending replies
     packets_translated_l2_to_l3: u64,
     packets_translated_l3_to_l2: u64,
     arp_requests_handled: u64,
@@ -29,7 +31,7 @@ pub const L2L3Translator = struct {
     const Self = @This();
 
     pub fn init(allocator: std.mem.Allocator, options: taptun.TranslatorOptions) !Self {
-        return Self{
+        return .{
             .allocator = allocator,
             .options = options,
             .our_ip = null,
@@ -37,6 +39,8 @@ pub const L2L3Translator = struct {
             .gateway_mac = null,
             .last_gateway_learn = 0,
             .arp_handler = try ArpHandler.init(allocator, options.our_mac),
+            .arp_reply_queue = std.ArrayList([]const u8){},
+            .pending_arp_ips = std.AutoHashMap(u32, void).init(allocator),
             .packets_translated_l2_to_l3 = 0,
             .packets_translated_l3_to_l2 = 0,
             .arp_requests_handled = 0,
@@ -45,6 +49,12 @@ pub const L2L3Translator = struct {
     }
 
     pub fn deinit(self: *Self) void {
+        // Free all queued ARP replies
+        for (self.arp_reply_queue.items) |reply| {
+            self.allocator.free(reply);
+        }
+        self.arp_reply_queue.deinit(self.allocator);
+        self.pending_arp_ips.deinit();
         self.arp_handler.deinit();
     }
 
@@ -202,14 +212,40 @@ pub const L2L3Translator = struct {
 
                 self.arp_requests_handled += 1;
 
-                if (self.options.verbose) {
-                    std.debug.print("[L2L3] Sent ARP reply for {}.{}.{}.{}\n", .{
-                        (target_ip >> 24) & 0xFF, (target_ip >> 16) & 0xFF,
-                        (target_ip >> 8) & 0xFF,  target_ip & 0xFF,
-                    });
-                }
+                // Check if we already have a pending reply for this IP
+                const already_pending = self.pending_arp_ips.contains(target_ip);
 
-                return reply;
+                // Limit queue size to prevent memory overflow
+                const max_queue_size = 10;
+                if (!already_pending and self.arp_reply_queue.items.len < max_queue_size) {
+                    if (self.options.verbose) {
+                        std.debug.print("[L2L3] Queuing ARP reply for {}.{}.{}.{} (queue: {}/{})\n", .{
+                            (target_ip >> 24) & 0xFF,           (target_ip >> 16) & 0xFF,
+                            (target_ip >> 8) & 0xFF,            target_ip & 0xFF,
+                            self.arp_reply_queue.items.len + 1, max_queue_size,
+                        });
+                    }
+
+                    // Queue the ARP reply and mark IP as pending
+                    try self.arp_reply_queue.append(self.allocator, reply);
+                    try self.pending_arp_ips.put(target_ip, {});
+                } else {
+                    // Already pending or queue full - free the duplicate reply
+                    self.allocator.free(reply);
+                    if (already_pending and self.options.verbose) {
+                        std.debug.print("[L2L3] ⚠️  Duplicate ARP request for {}.{}.{}.{} (already queued)\n", .{
+                            (target_ip >> 24) & 0xFF, (target_ip >> 16) & 0xFF,
+                            (target_ip >> 8) & 0xFF,  target_ip & 0xFF,
+                        });
+                    } else if (self.options.verbose) {
+                        std.debug.print("[L2L3] ⚠️  ARP queue full ({}/{}), dropping request for {}.{}.{}.{}\n", .{
+                            self.arp_reply_queue.items.len, max_queue_size,
+                            (target_ip >> 24) & 0xFF,       (target_ip >> 16) & 0xFF,
+                            (target_ip >> 8) & 0xFF,        target_ip & 0xFF,
+                        });
+                    }
+                }
+                return null;
             }
         }
 
@@ -237,6 +273,30 @@ pub const L2L3Translator = struct {
     /// Get learned gateway MAC
     pub fn getGatewayMac(self: *const Self) ?[6]u8 {
         return self.gateway_mac;
+    }
+
+    /// Check if there are pending ARP replies to send
+    pub fn hasPendingArpReply(self: *const Self) bool {
+        return self.arp_reply_queue.items.len > 0;
+    }
+
+    /// Get the next pending ARP reply (caller takes ownership and must free)
+    pub fn popArpReply(self: *Self) ?[]const u8 {
+        if (self.arp_reply_queue.items.len == 0) {
+            return null;
+        }
+        const reply = self.arp_reply_queue.orderedRemove(0);
+
+        // Extract target IP from ARP reply to remove from pending set
+        // ARP reply format: dest_mac(6) + src_mac(6) + type(2) + arp_data(28+)
+        // Target IP is at offset 24 (in ARP data section)
+        if (reply.len >= 38) {
+            const target_ip_bytes = reply[24..28];
+            const target_ip = std.mem.readInt(u32, target_ip_bytes[0..4], .big);
+            _ = self.pending_arp_ips.remove(target_ip);
+        }
+
+        return reply;
     }
 
     /// Get translation statistics
