@@ -12,20 +12,28 @@ pub fn build(b: *std.Build) void {
     });
 
     // Static library (for C interop)
-    const lib = b.addStaticLibrary(.{
+    const lib = std.Build.Step.Compile.create(b, .{
         .name = "taptun",
-        .root_source_file = b.path("src/taptun.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/taptun.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+        .kind = .lib,
+        .linkage = .static,
     });
     b.installArtifact(lib);
 
     // Shared library
-    const shared_lib = b.addSharedLibrary(.{
+    const shared_lib = std.Build.Step.Compile.create(b, .{
         .name = "taptun",
-        .root_source_file = b.path("src/taptun.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/taptun.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+        .kind = .lib,
+        .linkage = .dynamic,
     });
     b.installArtifact(shared_lib);
 
@@ -43,11 +51,15 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_unit_tests.step);
 
     // Documentation
-    const docs = b.addStaticLibrary(.{
+    const docs = std.Build.Step.Compile.create(b, .{
         .name = "taptun",
-        .root_source_file = b.path("src/taptun.zig"),
-        .target = target,
-        .optimize = .Debug,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/taptun.zig"),
+            .target = target,
+            .optimize = .Debug,
+        }),
+        .kind = .lib,
+        .linkage = .static,
     });
 
     const install_docs = b.addInstallDirectory(.{
