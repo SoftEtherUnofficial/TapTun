@@ -1,0 +1,19 @@
+.{
+    .name = "taptun",
+    .version = "0.1.0",
+    .description = "Cross-platform TAP/TUN library with L2↔L3 translation",
+    .minimum_zig_version = "0.13.0",
+
+    .dependencies = .{},
+
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "examples",
+        "tests",
+        "bench",
+        "README.md",
+        "LICENSE",
+    },
+}

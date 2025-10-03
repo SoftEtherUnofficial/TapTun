@@ -1,0 +1,81 @@
+# Zig build artifacts
+zig-out/
+zig-cache/
+.zig-cache/
+
+# Build files
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.lib
+*.pdb
+
+# Generated documentation
+docs/generated/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test artifacts
+test-results/
+coverage/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Lock files (if using package manager)
+*.lock
+
+# Compiled binaries
+/bin/
+/build/
+
+# macOS specific
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Linux specific
+*~
+.directory
+
+# Windows specific
+desktop.ini
+$RECYCLE.BIN/
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Dependencies (if vendored)
+vendor/
+deps/
+
+# Local configuration
+.env
+.env.local
+local.zig
+
+# Benchmark results
+bench-results/
+*.bench
+
+# Coverage reports
+*.gcov
+*.gcda
+*.gcno
