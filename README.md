@@ -71,7 +71,7 @@ A high-performance, cross-platform TAP/TUN interface library written in Zig with
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Application Layer                         │
+│                    Application Layer                        │
 │  (VPN client, router, network emulator, etc.)               │
 └─────────────────┬───────────────────────────────────────────┘
                   │
@@ -88,7 +88,7 @@ A high-performance, cross-platform TAP/TUN interface library written in Zig with
 └───┬────────┘          └───────┬──────┘
     │                           │
     │  ┌─────────────────────┐  │
-    └──▶  L2↔L3 Translator  ◀──┘
+    └──▶   L2↔L3 Translator  ◀──┘
        │ - Add/strip headers │
        │ - ARP handling      │
        │ - MAC learning      │

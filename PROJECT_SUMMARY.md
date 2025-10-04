@@ -45,7 +45,7 @@ const ip_packet = try translator.ethernetToIp(eth_frame);
 
 ```
 ┌───────────────────────────────────────────────────────┐
-│              Application Layer                         │
+│              Application Layer                        │
 │  (VPN client, router, bridge, network emulator)       │
 └─────────────────────┬─────────────────────────────────┘
                       │
