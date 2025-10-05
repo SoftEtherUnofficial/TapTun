@@ -306,8 +306,11 @@ zig build simple-tun
 cd ../SoftEtherZig
 zig build
 
-# Run
-sudo ./zig-out/bin/vpnclient -s worxvpn.662.cloud -p 443
+# Run (IMPORTANT: Use environment variables or --password-hash, see SECURITY.md)
+export SOFTETHER_SERVER="vpn.example.com"
+export SOFTETHER_USER="your_username"
+export SOFTETHER_PASSWORD_HASH="your_hash_here"
+sudo -E ./zig-out/bin/vpnclient
 ```
 
 Expected output:
