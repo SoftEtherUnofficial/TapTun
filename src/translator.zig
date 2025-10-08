@@ -91,8 +91,14 @@ pub const L2L3Translator = struct {
             // Use learned gateway MAC if available, otherwise broadcast
             if (self.gateway_mac) |gw_mac| {
                 dest_mac = gw_mac;
+                if (self.options.verbose) {
+                    std.debug.print("[L2L3] 📤 Using learned gateway MAC: {X:0>2}:{X:0>2}:{X:0>2}:{X:0>2}:{X:0>2}:{X:0>2}\n", .{ dest_mac[0], dest_mac[1], dest_mac[2], dest_mac[3], dest_mac[4], dest_mac[5] });
+                }
             } else {
                 @memset(&dest_mac, 0xFF); // Broadcast
+                if (self.options.verbose) {
+                    std.debug.print("[L2L3] ⚠️  Gateway MAC unknown, using broadcast: FF:FF:FF:FF:FF:FF\n", .{});
+                }
             }
         } else if (ip_packet.len > 0 and (ip_packet[0] & 0xF0) == 0x60) {
             // IPv6 packet
@@ -171,6 +177,27 @@ pub const L2L3Translator = struct {
         // Learn gateway MAC from ARP replies (opcode=2)
         if (opcode == 2 and self.options.learn_gateway_mac) {
             const sender_ip = std.mem.readInt(u32, arp_data[14..18], .big);
+
+            if (self.options.verbose) {
+                std.debug.print("[L2L3] 🔍 ARP Reply received from {}.{}.{}.{} (0x{X:0>8}), my gateway_ip=", .{
+                    (sender_ip >> 24) & 0xFF,
+                    (sender_ip >> 16) & 0xFF,
+                    (sender_ip >> 8) & 0xFF,
+                    sender_ip & 0xFF,
+                    sender_ip,
+                });
+                if (self.gateway_ip) |gw_ip| {
+                    std.debug.print("{}.{}.{}.{} (0x{X:0>8})\n", .{
+                        (gw_ip >> 24) & 0xFF,
+                        (gw_ip >> 16) & 0xFF,
+                        (gw_ip >> 8) & 0xFF,
+                        gw_ip & 0xFF,
+                        gw_ip,
+                    });
+                } else {
+                    std.debug.print("NULL (not set yet!)\n", .{});
+                }
+            }
 
             // Check if this is from our gateway (typically x.x.x.1)
             if (self.gateway_ip) |gw_ip| {
@@ -263,6 +290,16 @@ pub const L2L3Translator = struct {
         self.gateway_ip = ip;
         self.gateway_mac = mac;
         self.last_gateway_learn = std.time.milliTimestamp();
+
+        if (self.options.verbose) {
+            std.debug.print("[L2L3] ⚙️  setGateway called: IP={}.{}.{}.{} (network order: 0x{X:0>8})\n", .{
+                (ip >> 24) & 0xFF,
+                (ip >> 16) & 0xFF,
+                (ip >> 8) & 0xFF,
+                ip & 0xFF,
+                ip,
+            });
+        }
     }
 
     /// Get learned IP address
