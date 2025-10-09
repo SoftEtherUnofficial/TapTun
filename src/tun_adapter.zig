@@ -20,11 +20,19 @@
 
 const std = @import("std");
 const taptun = @import("taptun.zig");
+const builtin = @import("builtin");
+
+// Platform-specific route management
+const RouteManager = if (builtin.os.tag == .macos)
+    @import("routing/macos.zig").RouteManager
+else
+    void; // Other platforms not yet implemented
 
 pub const TunAdapter = struct {
     allocator: std.mem.Allocator,
     device: taptun.TunDevice,
     translator: taptun.L2L3Translator,
+    route_manager: ?*RouteManager, // Optional route management
     read_buffer: []u8, // Internal buffer for AF header handling
     write_buffer: []u8, // Internal buffer for AF header construction
 
@@ -35,6 +43,7 @@ pub const TunAdapter = struct {
         device: taptun.DeviceOptions = .{},
         translator: taptun.TranslatorOptions,
         buffer_size: usize = 65536, // Internal buffer size for packet handling
+        manage_routes: bool = false, // Enable automatic route management (save/restore)
     };
 
     /// Open TUN device with L2↔L3 translation
@@ -59,6 +68,16 @@ pub const TunAdapter = struct {
         const write_buffer = try allocator.alloc(u8, options.buffer_size);
         errdefer allocator.free(write_buffer);
 
+        // Initialize route manager if enabled (macOS only for now)
+        var route_manager: ?*RouteManager = null;
+        if (options.manage_routes and builtin.os.tag == .macos) {
+            route_manager = try RouteManager.init(allocator);
+            errdefer route_manager.?.deinit();
+
+            // Save original gateway immediately
+            try route_manager.?.getDefaultGateway();
+        }
+
         const self = try allocator.create(Self);
         errdefer allocator.destroy(self);
 
@@ -66,6 +85,7 @@ pub const TunAdapter = struct {
             .allocator = allocator,
             .device = device,
             .translator = translator,
+            .route_manager = route_manager,
             .read_buffer = read_buffer,
             .write_buffer = write_buffer,
         };
@@ -75,6 +95,11 @@ pub const TunAdapter = struct {
 
     /// Close device and free resources
     pub fn close(self: *Self) void {
+        // ✅ CRITICAL: Restore routes BEFORE closing device!
+        if (self.route_manager) |rm| {
+            rm.deinit(); // Automatically restores routes
+        }
+
         self.device.close();
         self.translator.deinit();
         self.allocator.free(self.read_buffer);
@@ -88,10 +113,10 @@ pub const TunAdapter = struct {
     pub fn readEthernet(self: *Self, buffer: []u8) ![]u8 {
         // Read IP packet from device (handles AF header stripping internally)
         const ip_packet_with_header = try self.device.read(self.read_buffer);
-        
+
         // Strip AF header (4 bytes on macOS/BSD)
         const ip_packet = try taptun.platform.stripProtocolHeader(ip_packet_with_header);
-        
+
         // Translate IP → Ethernet
         const eth_frame = try self.translator.ipToEthernet(ip_packet);
         defer self.allocator.free(eth_frame);
@@ -109,17 +134,17 @@ pub const TunAdapter = struct {
     pub fn writeEthernet(self: *Self, eth_frame: []const u8) !void {
         // Translate Ethernet → IP (may return null for ARP, etc.)
         const maybe_ip = try self.translator.ethernetToIp(eth_frame);
-        
+
         if (maybe_ip) |ip_packet| {
             defer self.allocator.free(ip_packet);
-            
+
             // Add AF header for macOS/BSD
             const packet_with_header = try taptun.platform.addProtocolHeader(
                 self.allocator,
                 ip_packet,
             );
             defer self.allocator.free(packet_with_header);
-            
+
             // Write to device
             try self.device.write(packet_with_header);
         }
@@ -185,6 +210,24 @@ pub const TunAdapter = struct {
     /// Set non-blocking mode
     pub fn setNonBlocking(self: *Self, enabled: bool) !void {
         try self.device.setNonBlocking(enabled);
+    }
+
+    /// Configure VPN routing (replace default gateway)
+    /// Requires manage_routes=true in Options
+    pub fn configureVpnRouting(self: *Self, vpn_gateway: [4]u8, vpn_server: ?[4]u8) !void {
+        if (self.route_manager) |rm| {
+            // Add host route for VPN server through original gateway (if provided)
+            if (vpn_server) |server| {
+                if (rm.local_gateway) |orig_gw| {
+                    try rm.addHostRoute(server, orig_gw);
+                }
+            }
+
+            // Replace default gateway with VPN gateway
+            try rm.replaceDefaultGateway(vpn_gateway);
+        } else {
+            return error.RouteManagementDisabled;
+        }
     }
 
     pub const TranslatorStats = struct {
