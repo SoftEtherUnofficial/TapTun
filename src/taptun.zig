@@ -1,17 +1,31 @@
 //! ZigTapTun - Cross-Platform TAP/TUN Library
 //!
-//! This library provides L2↔L3 protocol translation for TAP/TUN devices.
-//! Currently implements the core translation logic with ARP handling.
+//! Complete TUN/TAP device abstraction with L2↔L3 protocol translation.
 //!
-//! TODO: Device abstraction layer
-//! TODO: Platform-specific implementations (macOS, Linux, Windows, FreeBSD)
-//! TODO: PacketQueue implementation
+//! Features:
+//! - Platform-specific device I/O (macOS utun, Linux /dev/tun, Windows Wintun)
+//! - L2↔L3 translation (Ethernet ↔ IP)
+//! - ARP handling
+//! - IP and gateway MAC learning
 
 const std = @import("std");
+const builtin = @import("builtin");
 
-// Core modules (implemented)
+// Core modules
 pub const L2L3Translator = @import("translator.zig").L2L3Translator;
 pub const ArpHandler = @import("arp.zig").ArpHandler;
+
+// High-level adapter (combines device + translator)
+pub const TunAdapter = @import("tun_adapter.zig").TunAdapter;
+
+// Platform-specific device implementations
+pub const platform = switch (builtin.os.tag) {
+    .macos, .ios => @import("platform/macos.zig"),
+    else => @compileError("Platform not yet supported. Available: macOS. Coming soon: Linux, Windows, FreeBSD"),
+};
+
+/// Platform-specific TUN device (low-level, for advanced users)
+pub const TunDevice = platform.MacOSUtunDevice;
 
 // Public types for L2L3 translation
 pub const TranslatorOptions = struct {
@@ -23,10 +37,20 @@ pub const TranslatorOptions = struct {
     verbose: bool = false,
 };
 
-/// Error set for translation operations
+/// Device options for TUN/TAP creation
+pub const DeviceOptions = struct {
+    unit: ?u32 = null, // Device unit number (null = auto-assign)
+    mtu: u16 = 1500,
+    non_blocking: bool = true,
+};
+
+/// Error set for TUN/TAP operations
 pub const TapTunError = error{
     InvalidPacket,
     TranslationFailed,
+    DeviceNotFound,
+    InvalidConfiguration,
+    UnsupportedPlatform,
 };
 
 test {

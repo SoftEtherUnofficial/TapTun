@@ -147,11 +147,12 @@ pub const MacOSUtunDevice = struct {
     }
 
     pub fn setNonBlocking(self: *Self, enabled: bool) !void {
+        const O_NONBLOCK: u32 = 0x0004; // O_NONBLOCK on macOS
         const flags = try posix.fcntl(self.fd, posix.F.GETFL, 0);
         const new_flags = if (enabled)
-            flags | @as(u32, posix.O.NONBLOCK)
+            flags | O_NONBLOCK
         else
-            flags & ~@as(u32, posix.O.NONBLOCK);
+            flags & ~O_NONBLOCK;
         _ = try posix.fcntl(self.fd, posix.F.SETFL, new_flags);
     }
 };
