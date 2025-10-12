@@ -21,11 +21,16 @@ pub const TunAdapter = @import("tun_adapter.zig").TunAdapter;
 // Platform-specific device implementations
 pub const platform = switch (builtin.os.tag) {
     .macos, .ios => @import("platform/macos.zig"),
-    else => @compileError("Platform not yet supported. Available: macOS. Coming soon: Linux, Windows, FreeBSD"),
+    .windows => @import("platform/windows.zig"),
+    else => @compileError("Platform not yet supported. Available: macOS, Windows. Coming soon: Linux, FreeBSD"),
 };
 
 /// Platform-specific TUN device (low-level, for advanced users)
-pub const TunDevice = platform.MacOSUtunDevice;
+pub const TunDevice = switch (builtin.os.tag) {
+    .macos, .ios => platform.MacOSUtunDevice,
+    .windows => platform.WindowsTapDevice,
+    else => @compileError("Platform not yet supported"),
+};
 
 // Public types for L2L3 translation
 pub const TranslatorOptions = struct {

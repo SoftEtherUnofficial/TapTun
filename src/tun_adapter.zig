@@ -96,8 +96,10 @@ pub const TunAdapter = struct {
     /// Close device and free resources
     pub fn close(self: *Self) void {
         // ✅ CRITICAL: Restore routes BEFORE closing device!
-        if (self.route_manager) |rm| {
-            rm.deinit(); // Automatically restores routes
+        inline for (.{RouteManager}) |RM| {
+            if (RM != void and self.route_manager != null) {
+                self.route_manager.?.deinit();
+            }
         }
 
         self.device.close();
@@ -215,6 +217,12 @@ pub const TunAdapter = struct {
     /// Configure VPN routing (replace default gateway)
     /// Requires manage_routes=true in Options
     pub fn configureVpnRouting(self: *Self, vpn_gateway: [4]u8, vpn_server: ?[4]u8) !void {
+        inline for (.{RouteManager}) |RM| {
+            if (RM == void) {
+                return error.PlatformNotSupported;
+            }
+        }
+
         if (self.route_manager) |rm| {
             // Add host route for VPN server through original gateway (if provided)
             if (vpn_server) |server| {
@@ -229,7 +237,6 @@ pub const TunAdapter = struct {
             return error.RouteManagementDisabled;
         }
     }
-
     pub const TranslatorStats = struct {
         packets_l3_to_l2: u64,
         packets_l2_to_l3: u64,
