@@ -19,11 +19,13 @@ pub fn build(b: *std.Build) void {
     } else null;
 
     // Create main module with iOS SDK paths if needed
-    const main_module = b.createModule(.{
+    const main_module_options = std.Build.Module.CreateOptions{
         .root_source_file = b.path("src/taptun.zig"),
         .target = target,
         .optimize = optimize,
-    });
+    };
+
+    const main_module = b.createModule(main_module_options);
 
     // Add iOS SDK include paths for @cImport
     if (ios_sdk_path) |sdk| {
@@ -32,7 +34,7 @@ pub fn build(b: *std.Build) void {
     }
 
     // Main library module (for future examples/consumers)
-    _ = b.addModule("taptun", main_module);
+    _ = b.addModule("taptun", main_module_options);
 
     // Static library (for C interop)
     const lib = std.Build.Step.Compile.create(b, .{
