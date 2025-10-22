@@ -42,7 +42,9 @@ fn benchEthernetToIp(
     // Warmup
     var i: usize = 0;
     while (i < 100) : (i += 1) {
-        _ = try translator.ethernetToIp(eth_packet);
+        if (try translator.ethernetToIp(eth_packet)) |ip_slice| {
+            translator.allocator.free(ip_slice);
+        }
     }
 
     // Benchmark
@@ -50,7 +52,8 @@ fn benchEthernetToIp(
     i = 0;
     var successful: usize = 0;
     while (i < iterations) : (i += 1) {
-        if (try translator.ethernetToIp(eth_packet)) |_| {
+        if (try translator.ethernetToIp(eth_packet)) |ip_slice| {
+            translator.allocator.free(ip_slice);
             successful += 1;
         }
     }
