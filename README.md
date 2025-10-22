@@ -1,4 +1,4 @@
-# ZigTapTun - Cross-Platform TAP/TUN Library
+# TapTun - Cross-Platform TAP/TUN Library
 
 A high-performance, cross-platform TAP/TUN interface library written in Zig with C interop support.
 
