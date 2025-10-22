@@ -34,7 +34,9 @@ pub fn main() !void {
     // Warmup
     var i: usize = 0;
     while (i < 100) : (i += 1) {
-        _ = try translator.ethernetToIp(eth_packet);
+        if (try translator.ethernetToIp(eth_packet)) |ip_slice| {
+            translator.allocator.free(ip_slice);
+        }
     }
 
     // Measure individual packet latencies
@@ -43,8 +45,9 @@ pub fn main() !void {
     var valid_measurements: usize = 0;
     while (i < iterations) : (i += 1) {
         const start = std.time.nanoTimestamp();
-        if (try translator.ethernetToIp(eth_packet)) |_| {
+        if (try translator.ethernetToIp(eth_packet)) |ip_slice| {
             const elapsed = std.time.nanoTimestamp() - start;
+            translator.allocator.free(ip_slice);
             latencies[valid_measurements] = @as(u64, @intCast(elapsed));
             valid_measurements += 1;
         }
