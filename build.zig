@@ -18,37 +18,32 @@ pub fn build(b: *std.Build) void {
         }
     } else null;
 
-    // Create main module with iOS SDK paths if needed
-    const main_module_options = std.Build.Module.CreateOptions{
+    // Export module (works with both Zig 0.13 and 0.15)
+    const taptun_module = b.addModule("taptun", .{
         .root_source_file = b.path("src/taptun.zig"),
         .target = target,
         .optimize = optimize,
-    };
-
-    const main_module = b.createModule(main_module_options);
+    });
 
     // Add iOS SDK include paths for @cImport
     if (ios_sdk_path) |sdk| {
         const ios_include = b.fmt("{s}/usr/include", .{sdk});
-        main_module.addSystemIncludePath(.{ .cwd_relative = ios_include });
+        taptun_module.addSystemIncludePath(.{ .cwd_relative = ios_include });
     }
 
-    // Main library module (for future examples/consumers)
-    _ = b.addModule("taptun", main_module_options);
-
-    // Static library (for C interop)
+    // Create libraries using Zig 0.15 API (compatible with module system)
+    // Note: This uses Step.Compile.create which works with main_module
     const lib = std.Build.Step.Compile.create(b, .{
         .name = "taptun",
-        .root_module = main_module,
+        .root_module = taptun_module,
         .kind = .lib,
         .linkage = .static,
     });
     b.installArtifact(lib);
 
-    // Shared library
     const shared_lib = std.Build.Step.Compile.create(b, .{
         .name = "taptun",
-        .root_module = main_module,
+        .root_module = taptun_module,
         .kind = .lib,
         .linkage = .dynamic,
     });
@@ -56,7 +51,7 @@ pub fn build(b: *std.Build) void {
 
     // Unit tests
     const unit_tests = b.addTest(.{
-        .root_module = main_module,
+        .root_module = taptun_module,
     });
 
     const run_unit_tests = b.addRunArtifact(unit_tests);
@@ -66,7 +61,7 @@ pub fn build(b: *std.Build) void {
     // Documentation
     const docs = std.Build.Step.Compile.create(b, .{
         .name = "taptun",
-        .root_module = main_module,
+        .root_module = taptun_module,
         .kind = .lib,
         .linkage = .static,
     });

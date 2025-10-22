@@ -1,6 +1,7 @@
 const std = @import("std");
+const routing = @import("../routing.zig");
 
-const ArrayListType = std.array_list.AlignedManaged([4]u8, null);
+const ArrayListType = std.ArrayList([4]u8);
 
 pub const RouteManager = struct {
     allocator: std.mem.Allocator,
@@ -16,7 +17,7 @@ pub const RouteManager = struct {
         const self = try allocator.create(Self);
         self.* = .{
             .allocator = allocator,
-            .vpn_server_ips = ArrayListType.init(allocator),
+            .vpn_server_ips = ArrayListType{},
         };
         return self;
     }
@@ -24,24 +25,29 @@ pub const RouteManager = struct {
     /// Get current default gateway by parsing netstat output
     /// Returns without error if no gateway exists (e.g., no network connection yet)
     pub fn getDefaultGateway(self: *Self) !void {
-        const result = try std.process.Child.run(.{
-            .allocator = self.allocator,
-            .argv = &[_][]const u8{
+        const stdout = routing.execCommand(
+            self.allocator,
+            &[_][]const u8{
                 "/bin/sh",
                 "-c",
                 "netstat -rn | grep '^default' | grep -v utun | awk '{print $2}' | head -1",
             },
-        });
-        defer self.allocator.free(result.stdout);
-        defer self.allocator.free(result.stderr);
+        ) catch |err| {
+            if (err == error.CommandFailed) {
+                std.log.info("No default gateway found (network may not be up yet)", .{});
+                return;
+            }
+            return err;
+        };
+        defer self.allocator.free(stdout);
 
-        if (result.stdout.len == 0) {
+        if (stdout.len == 0) {
             std.log.info("No default gateway found (network may not be up yet)", .{});
-            return; // Not an error - just means no gateway to save
+            return;
         }
 
         // Parse IP address (format: "192.168.1.1\n")
-        const ip_str = std.mem.trim(u8, result.stdout, " \t\n\r");
+        const ip_str = std.mem.trim(u8, stdout, " \t\n\r");
         var octets: [4]u8 = undefined;
         var iter = std.mem.splitSequence(u8, ip_str, ".");
         var i: usize = 0;
@@ -66,12 +72,12 @@ pub const RouteManager = struct {
 
         // Delete all existing default routes (macOS may have multiple)
         for (0..3) |_| {
-            const delete_result = try std.process.Child.run(.{
-                .allocator = self.allocator,
-                .argv = &[_][]const u8{ "route", "-n", "delete", "default" },
-            });
-            defer self.allocator.free(delete_result.stdout);
-            defer self.allocator.free(delete_result.stderr);
+            routing.execCommandSimple(self.allocator, &[_][]const u8{
+                "route",
+                "-n",
+                "delete",
+                "default",
+            }) catch {};
         }
 
         // Add VPN default route
@@ -83,27 +89,26 @@ pub const RouteManager = struct {
             vpn_gw[3],
         });
 
-        const add_result = try std.process.Child.run(.{
-            .allocator = self.allocator,
-            .argv = &[_][]const u8{ "route", "-n", "add", "-inet", "default", cmd },
-        });
-        defer self.allocator.free(add_result.stdout);
-        defer self.allocator.free(add_result.stderr);
-
-        if (add_result.term != .Exited or add_result.term.Exited != 0) {
+        routing.execCommandSimple(self.allocator, &[_][]const u8{
+            "route",
+            "-n",
+            "add",
+            "-inet",
+            "default",
+            cmd,
+        }) catch {
             // Try without -n flag as fallback
-            const fallback_result = try std.process.Child.run(.{
-                .allocator = self.allocator,
-                .argv = &[_][]const u8{ "route", "add", "-inet", "default", cmd },
-            });
-            defer self.allocator.free(fallback_result.stdout);
-            defer self.allocator.free(fallback_result.stderr);
-
-            if (fallback_result.term != .Exited or fallback_result.term.Exited != 0) {
+            routing.execCommandSimple(self.allocator, &[_][]const u8{
+                "route",
+                "add",
+                "-inet",
+                "default",
+                cmd,
+            }) catch {
                 std.log.err("Failed to add default route", .{});
                 return error.RouteAddFailed;
-            }
-        }
+            };
+        };
 
         self.routes_configured = true;
     }
@@ -128,15 +133,16 @@ pub const RouteManager = struct {
 
         std.log.info("Adding host route: {s} via {s}", .{ dest_str, gw_str });
 
-        const result = try std.process.Child.run(.{
-            .allocator = self.allocator,
-            .argv = &[_][]const u8{ "route", "add", "-host", dest_str, gw_str },
+        try routing.execCommandSimple(self.allocator, &[_][]const u8{
+            "route",
+            "add",
+            "-host",
+            dest_str,
+            gw_str,
         });
-        defer self.allocator.free(result.stdout);
-        defer self.allocator.free(result.stderr);
 
         // Store for cleanup
-        try self.vpn_server_ips.append(destination);
+        try self.vpn_server_ips.append(self.allocator, destination);
     }
 
     /// Add network route for VPN subnet (e.g., 10.21.0.0/16 via gateway)
@@ -168,17 +174,18 @@ pub const RouteManager = struct {
 
         std.log.info("🔧 Adding VPN network route: {s}/{s} via {s}", .{ net_str, mask_str, gw_str });
 
-        const result = try std.process.Child.run(.{
-            .allocator = self.allocator,
-            .argv = &[_][]const u8{ "route", "add", "-net", net_str, gw_str, "-netmask", mask_str },
-        });
-        defer self.allocator.free(result.stdout);
-        defer self.allocator.free(result.stderr);
-
-        if (result.term != .Exited or result.term.Exited != 0) {
-            std.log.warn("Failed to add network route: {s}", .{result.stderr});
-            return error.RouteAddFailed;
-        }
+        routing.execCommandSimple(self.allocator, &[_][]const u8{
+            "route",
+            "add",
+            "-net",
+            net_str,
+            gw_str,
+            "-netmask",
+            mask_str,
+        }) catch |err| {
+            std.log.warn("Failed to add network route", .{});
+            return err;
+        };
 
         std.log.info("✅ VPN network route added successfully", .{});
     }
@@ -203,22 +210,21 @@ pub const RouteManager = struct {
 
         // Delete VPN default route
         std.log.info("[ROUTE RESTORE] Step 1/3: Removing VPN default route...", .{});
-        const delete_result = try std.process.Child.run(.{
-            .allocator = self.allocator,
-            .argv = &[_][]const u8{ "route", "delete", "default" },
+        try routing.execCommandSimple(self.allocator, &[_][]const u8{
+            "route",
+            "delete",
+            "default",
         });
-        defer self.allocator.free(delete_result.stdout);
-        defer self.allocator.free(delete_result.stderr);
         std.log.info("[ROUTE RESTORE] Step 1/3 ✅ VPN route deleted", .{});
 
         // Restore original default route
         std.log.info("[ROUTE RESTORE] Step 2/3: Restoring original default route: {s}", .{gw_str});
-        const add_result = try std.process.Child.run(.{
-            .allocator = self.allocator,
-            .argv = &[_][]const u8{ "route", "add", "default", gw_str },
+        try routing.execCommandSimple(self.allocator, &[_][]const u8{
+            "route",
+            "add",
+            "default",
+            gw_str,
         });
-        defer self.allocator.free(add_result.stdout);
-        defer self.allocator.free(add_result.stderr);
         std.log.info("[ROUTE RESTORE] Step 2/3 ✅ Original route restored", .{});
 
         // Clean up VPN server host routes
@@ -233,12 +239,12 @@ pub const RouteManager = struct {
             });
 
             std.log.debug("Cleaning up VPN server route: {s}", .{server_str});
-            const cleanup_result = try std.process.Child.run(.{
-                .allocator = self.allocator,
-                .argv = &[_][]const u8{ "route", "delete", "-host", server_str },
-            });
-            defer self.allocator.free(cleanup_result.stdout);
-            defer self.allocator.free(cleanup_result.stderr);
+            routing.execCommandSimple(self.allocator, &[_][]const u8{
+                "route",
+                "delete",
+                "-host",
+                server_str,
+            }) catch {};
         }
 
         std.log.info("[ROUTE RESTORE] ✅ All routing restored successfully", .{});
@@ -252,7 +258,7 @@ pub const RouteManager = struct {
             std.log.err("Failed to restore routes during deinit: {}", .{err});
         };
 
-        self.vpn_server_ips.deinit();
+        self.vpn_server_ips.deinit(self.allocator);
         self.allocator.destroy(self);
     }
 };

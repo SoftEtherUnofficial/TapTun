@@ -3,6 +3,7 @@
 /// Uses `ip route` command for route manipulation.
 /// Alternative: netlink sockets for direct kernel communication.
 const std = @import("std");
+const routing = @import("../routing.zig");
 
 pub const RouteManager = struct {
     allocator: std.mem.Allocator,
@@ -24,23 +25,22 @@ pub const RouteManager = struct {
 
     /// Get current default gateway using ip route
     pub fn getDefaultGateway(self: *Self) !void {
-        const result = try std.process.Child.run(.{
-            .allocator = self.allocator,
-            .argv = &[_][]const u8{
+        const stdout = try routing.execCommand(
+            self.allocator,
+            &[_][]const u8{
                 "/bin/sh",
                 "-c",
                 "ip route show default | awk '{print $3}' | head -1",
             },
-        });
-        defer self.allocator.free(result.stdout);
-        defer self.allocator.free(result.stderr);
+        );
+        defer self.allocator.free(stdout);
 
-        if (result.stdout.len == 0) {
+        if (stdout.len == 0) {
             return error.NoDefaultGateway;
         }
 
         // Parse IP address
-        const ip_str = std.mem.trim(u8, result.stdout, " \t\n\r");
+        const ip_str = std.mem.trim(u8, stdout, " \t\n\r");
         var octets: [4]u8 = undefined;
         var iter = std.mem.splitSequence(u8, ip_str, ".");
         var i: usize = 0;
@@ -75,26 +75,26 @@ pub const RouteManager = struct {
 
         // Delete existing default routes
         std.log.info("Deleting existing default routes...", .{});
-        const delete_result = try std.process.Child.run(.{
-            .allocator = self.allocator,
-            .argv = &[_][]const u8{ "ip", "route", "del", "default" },
-        });
-        defer self.allocator.free(delete_result.stdout);
-        defer self.allocator.free(delete_result.stderr);
+        routing.execCommandSimple(self.allocator, &[_][]const u8{
+            "ip",
+            "route",
+            "del",
+            "default",
+        }) catch {};
 
         // Add VPN default route
         std.log.info("Adding VPN default route: {s}", .{gw_str});
-        const add_result = try std.process.Child.run(.{
-            .allocator = self.allocator,
-            .argv = &[_][]const u8{ "ip", "route", "add", "default", "via", gw_str },
-        });
-        defer self.allocator.free(add_result.stdout);
-        defer self.allocator.free(add_result.stderr);
-
-        if (add_result.term != .Exited or add_result.term.Exited != 0) {
-            std.log.err("Failed to add default route: {s}", .{add_result.stderr});
-            return error.RouteAddFailed;
-        }
+        routing.execCommandSimple(self.allocator, &[_][]const u8{
+            "ip",
+            "route",
+            "add",
+            "default",
+            "via",
+            gw_str,
+        }) catch |err| {
+            std.log.err("Failed to add default route", .{});
+            return err;
+        };
 
         self.routes_configured = true;
         std.log.info("✅ Default route now points to VPN gateway {d}.{d}.{d}.{d}", .{
@@ -125,18 +125,19 @@ pub const RouteManager = struct {
 
         std.log.info("Adding host route: {s} via {s}", .{ dest_str, gw_str });
 
-        const result = try std.process.Child.run(.{
-            .allocator = self.allocator,
-            .argv = &[_][]const u8{ "ip", "route", "add", dest_str, "via", gw_str },
-        });
-        defer self.allocator.free(result.stdout);
-        defer self.allocator.free(result.stderr);
+        routing.execCommandSimple(self.allocator, &[_][]const u8{
+            "ip",
+            "route",
+            "add",
+            dest_str,
+            "via",
+            gw_str,
+        }) catch |err| {
+            std.log.warn("Failed to add host route (may already exist)", .{});
+            if (err != error.CommandFailed) return err;
+        };
 
-        if (result.term != .Exited or result.term.Exited != 0) {
-            std.log.warn("Failed to add host route (may already exist): {s}", .{result.stderr});
-        }
-
-        try self.vpn_server_ips.append(destination);
+        try self.vpn_server_ips.append(self.allocator, destination);
     }
 
     /// Restore original routing
@@ -159,21 +160,23 @@ pub const RouteManager = struct {
 
         // Delete VPN default route
         std.log.info("Removing VPN default route...", .{});
-        const delete_result = try std.process.Child.run(.{
-            .allocator = self.allocator,
-            .argv = &[_][]const u8{ "ip", "route", "del", "default" },
+        try routing.execCommandSimple(self.allocator, &[_][]const u8{
+            "ip",
+            "route",
+            "del",
+            "default",
         });
-        defer self.allocator.free(delete_result.stdout);
-        defer self.allocator.free(delete_result.stderr);
 
         // Restore original default route
         std.log.info("✅ Restoring original default route: {s}", .{gw_str});
-        const add_result = try std.process.Child.run(.{
-            .allocator = self.allocator,
-            .argv = &[_][]const u8{ "ip", "route", "add", "default", "via", gw_str },
+        try routing.execCommandSimple(self.allocator, &[_][]const u8{
+            "ip",
+            "route",
+            "add",
+            "default",
+            "via",
+            gw_str,
         });
-        defer self.allocator.free(add_result.stdout);
-        defer self.allocator.free(add_result.stderr);
 
         // Clean up VPN server host routes
         for (self.vpn_server_ips.items) |server_ip| {
@@ -186,12 +189,12 @@ pub const RouteManager = struct {
             });
 
             std.log.debug("Cleaning up VPN server route: {s}", .{server_str});
-            const cleanup_result = try std.process.Child.run(.{
-                .allocator = self.allocator,
-                .argv = &[_][]const u8{ "ip", "route", "del", server_str },
-            });
-            defer self.allocator.free(cleanup_result.stdout);
-            defer self.allocator.free(cleanup_result.stderr);
+            routing.execCommandSimple(self.allocator, &[_][]const u8{
+                "ip",
+                "route",
+                "del",
+                server_str,
+            }) catch {};
         }
 
         std.log.info("✅ Routing restored successfully", .{});

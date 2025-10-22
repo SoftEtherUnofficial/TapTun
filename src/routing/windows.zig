@@ -136,7 +136,7 @@ pub const RouteManager = struct {
             std.log.warn("Failed to add host route (may already exist): {s}", .{result.stderr});
         }
 
-        try self.vpn_server_ips.append(destination);
+        try self.vpn_server_ips.append(self.allocator, destination);
     }
 
     /// Restore original routing

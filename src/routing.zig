@@ -98,6 +98,45 @@ pub fn ipv4ToString(ip: Ipv4Address, buf: []u8) ![]const u8 {
     return std.fmt.bufPrint(buf, "{d}.{d}.{d}.{d}", .{ ip[0], ip[1], ip[2], ip[3] });
 }
 
+/// Execute shell command with automatic cleanup and error checking
+/// Returns stdout as an allocated string that the caller must free
+pub fn execCommand(allocator: std.mem.Allocator, argv: []const []const u8) ![]const u8 {
+    const result = try std.process.Child.run(.{
+        .allocator = allocator,
+        .argv = argv,
+    });
+    errdefer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+
+    if (result.term != .Exited or result.term.Exited != 0) {
+        if (result.stderr.len > 0) {
+            std.log.err("Command failed: {s}", .{result.stderr});
+        }
+        allocator.free(result.stdout);
+        return error.CommandFailed;
+    }
+
+    return result.stdout;
+}
+
+/// Execute shell command that doesn't return meaningful output
+/// Only checks exit code
+pub fn execCommandSimple(allocator: std.mem.Allocator, argv: []const []const u8) !void {
+    const result = try std.process.Child.run(.{
+        .allocator = allocator,
+        .argv = argv,
+    });
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+
+    if (result.term != .Exited or result.term.Exited != 0) {
+        if (result.stderr.len > 0) {
+            std.log.err("Command failed: {s}", .{result.stderr});
+        }
+        return error.CommandFailed;
+    }
+}
+
 test "parseIpv4" {
     const ip = try parseIpv4("192.168.1.1");
     try std.testing.expectEqual([4]u8{ 192, 168, 1, 1 }, ip);

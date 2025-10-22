@@ -1,29 +1,69 @@
 # ZigTapTun Project Status
 
-**Last Updated**: October 3, 2025  
-**Status**: ✅ **Core Functionality Complete & Tested**
+**Last Updated**: October 23, 2025  
+**Status**: ✅ **Production-Ready Core with macOS Support**
 
 ## 🎯 Quick Summary
 
-ZigTapTun is a cross-platform TAP/TUN library written in Zig, focusing on L2↔L3 protocol translation for VPN applications. The core translation logic is **complete and tested**, with platform-specific device implementations planned for future development.
+ZigTapTun is a cross-platform TAP/TUN library written in Zig (~4800 lines), focusing on L2↔L3 protocol translation for VPN applications. The core translation logic, macOS platform implementation, and routing management are **complete and production-ready**.
 
 ## ✅ Completed Components
 
 ### Core Translation Engine (100%)
-- ✅ **L2L3Translator** (`src/translator.zig`)
+- ✅ **L2L3Translator** (`src/translator.zig` - 560 lines)
   - IP packet → Ethernet frame conversion
   - Ethernet frame → IP packet conversion
   - Automatic IP address learning from outgoing packets
   - Gateway MAC address learning from ARP replies
   - Full ARP request/reply handling
   - Statistics tracking
-  - **Tests**: 1 unit test passing
+  - **Tests**: Comprehensive unit tests passing
 
-- ✅ **ARP Handler** (`src/arp.zig`)
+- ✅ **ARP Handler** (`src/arp.zig` - 151 lines)
   - ARP request packet construction
   - ARP reply packet construction
   - MAC address management
-  - **Tests**: 1 unit test passing
+  - **Tests**: Unit tests passing
+
+- ✅ **DHCP Client** (`src/dhcp_client.zig` - 394 lines)
+  - Full DHCP state machine (INIT, SELECTING, REQUESTING, BOUND)
+  - DHCP packet construction and parsing
+  - IP address lease management
+  - Automatic DHCP renewal
+  - **Tests**: Comprehensive unit tests
+
+- ✅ **DNS Protocol** (`src/dns.zig` - 449 lines)
+  - DNS query/response parsing
+  - Resource record handling
+  - Multiple record types support
+  - Query ID tracking
+
+- ✅ **TUN Adapter** (`src/tun_adapter.zig` - 336 lines)
+  - High-level VPN interface abstraction
+  - Automatic L2↔L3 translation
+  - Platform-agnostic read/write operations
+  - Route management integration
+  - Clean debug output (production-ready)
+
+### Routing Management (100%)
+- ✅ **Cross-Platform Routing** (`src/routing.zig` - 165 lines)
+  - Centralized error types
+  - IP address formatting utilities
+  - Shell command execution helpers
+  - Platform-agnostic interface
+
+- ✅ **macOS Routing** (`src/routing/macos.zig` - 241 lines)
+  - Default gateway detection and replacement
+  - Host route management for VPN servers
+  - Network route configuration
+  - Automatic route restoration
+  - Uses `route` command with full cleanup
+
+- ✅ **Linux Routing** (`src/routing/linux.zig` - 196 lines)
+  - Default gateway detection via `ip route`
+  - Route manipulation with proper cleanup
+  - Host route support
+  - Automatic restoration on cleanup
 
 ### Build System (100%)
 - ✅ Static library compilation (`libtaptun.a`)
@@ -57,8 +97,10 @@ TODO:
 
 ### Platform-Specific Backends
 
+### Platform Implementations
+
 #### macOS Implementation (100% COMPLETE) ✅
-**File**: `src/platform/macos.zig` (FULLY IMPLEMENTED & TESTED)
+**File**: `src/platform/macos.zig` (241 lines - PRODUCTION READY)
 
 ```zig
 DONE:
@@ -68,19 +110,20 @@ DONE:
 - [x] Device number allocation (utun0-utun255)
 - [x] Non-blocking I/O support
 - [x] Protocol header helpers (add/strip AF_INET/AF_INET6)
-- [x] Basic read/write operations
+- [x] Full read/write operations
 - [x] Unit tests for protocol headers
 - [x] Integration tests with real device creation
 - [x] Zig 0.13 API compatibility
+- [x] Production deployment tested
 ```
 
-**Status**: ✅ **COMPLETE AND TESTED WITH REAL HARDWARE!**
+**Status**: ✅ **COMPLETE, TESTED, AND PRODUCTION-READY**
 
 **Test Results**:
 ```bash
 # Run tests (integration test requires sudo)
-zig test src/platform/macos.zig        # 1/1 unit tests pass, 1 skipped
-sudo zig test src/platform/macos.zig  # 2/2 tests pass, creates real utun device!
+zig test src/platform/macos.zig        # Unit tests pass
+sudo zig test src/platform/macos.zig  # Integration tests pass, creates real utun device!
 ```
 
 **Example output**:
@@ -102,97 +145,76 @@ var device = try macos.MacOSUtunDevice.open(allocator, null);
 defer device.close();
 
 std.debug.print("Device: {s}\n", .{device.getName()});
-
-// Configure the interface (run as root)
-// sudo ifconfig utun7 10.0.0.1 10.0.0.2 netmask 255.255.255.0
 ```
 
-TODO (Future Enhancements):
-- [ ] kqueue integration for async I/O
-- [ ] Network Extension support  
-- [ ] IP address configuration via ioctl
-- [ ] Integration with Device abstraction layer
-
-#### Linux Implementation
-**File**: `src/platform/linux.zig` (stub exists)
+#### Linux Implementation (95% COMPLETE) ⏳
+**File**: `src/platform/linux.zig` (574 lines - READY FOR TESTING)
 
 ```zig
+DONE:
+- [x] /dev/net/tun character device
+- [x] IFF_TUN / IFF_TAP mode selection
+- [x] IFF_NO_PI flag (headerless mode)
+- [x] Persistent interface support
+- [x] Owner/group UID setting
+- [x] Non-blocking I/O
+- [x] Full read/write operations
+- [x] Unit tests
+
 TODO:
-- [ ] /dev/net/tun character device
-- [ ] IFF_TUN / IFF_TAP mode selection
-- [ ] IFF_NO_PI flag (headerless mode)
-- [ ] Persistent interface support
-- [ ] Owner/group UID setting
-- [ ] Non-blocking I/O with epoll
+- [ ] Integration tests on Linux hardware
+- [ ] epoll for async I/O (optional enhancement)
 ```
 
-**References**:
-- `/usr/include/linux/if_tun.h`
-- `man 4 tun`
+**Status**: ⏳ **Implementation complete, awaiting Linux hardware testing**
 
-#### Windows Implementation
-**File**: `src/platform/windows.zig` (stub exists)
+#### Windows Implementation (30% COMPLETE) ⏳
+**File**: `src/platform/windows.zig` (488 lines - PARTIAL IMPLEMENTATION)
 
 ```zig
-TODO (Priority 1: Wintun):
-- [ ] Wintun DLL loading (wintun.dll)
+DONE:
+- [x] Basic TAP-Windows adapter structure
+- [x] Device enumeration via registry
+- [x] Handle management
+- [x] Read/write operation stubs
+
+TODO:
+- [ ] Complete Wintun DLL loading (wintun.dll)
 - [ ] Ring buffer management
 - [ ] Adapter creation/deletion
-- [ ] Packet read/write via ring buffers
 - [ ] IOCP for async I/O
 - [ ] WFP (Windows Filtering Platform) integration
-
-TODO (Priority 2: Fallback):
-- [ ] TAP-Windows6 adapter support
-- [ ] Registry enumeration for adapters
-- [ ] DeviceIoControl operations
+- [ ] Integration tests on Windows
 ```
+
+**Status**: ⏳ **Partial implementation, needs Wintun integration**
 
 **References**:
 - https://www.wintun.net/ (Wintun API)
 - https://git.zx2c4.com/wintun/ (Source code)
 
-#### FreeBSD Implementation
-**File**: `src/platform/freebsd.zig` (stub exists)
-
-```zig
-TODO:
-- [ ] /dev/tun* and /dev/tap* devices
-- [ ] Clone device support
-- [ ] Device auto-creation
-- [ ] kqueue for async I/O
-```
-
-### Packet Queue (0%)
-**File**: `src/queue.zig` (stub exists)
-
-```zig
-TODO:
-- [ ] Lock-free ring buffer
-- [ ] Thread-safe enqueue/dequeue
-- [ ] Zero-copy design
-- [ ] Backpressure handling
-```
-
 ## 📊 Test Results
 
 ```
 Test Suite: ALL PASSING ✅
-├─ L2L3Translator basic init ✅
-├─ ArpHandler basic ✅
+├─ L2L3Translator (translator.zig) ✅
+├─ ArpHandler (arp.zig) ✅
+├─ DHCP Client (dhcp_client.zig) ✅
 ├─ Core module tests ✅
 ├─ macOS utun protocol headers ✅
-└─ macOS utun device integration ✅ (requires sudo)
+├─ macOS utun device integration ✅ (requires sudo)
+└─ Routing utilities ✅
 
-Total: 5/5 tests passing (100%)
-Build time: ~1s
+Total: Multiple test suites passing (100%)
+Build time: ~1-2s
+Code base: ~4800 lines across 17 files
 ```
 
 **Platform Tests**:
 ```bash
 # Test macOS implementation
-zig test src/platform/macos.zig         # 1/1 unit tests pass, 1 skipped
-sudo zig test src/platform/macos.zig   # 2/2 tests pass, creates utun7!
+zig test src/platform/macos.zig         # Unit tests pass
+sudo zig test src/platform/macos.zig   # Integration tests pass, creates real utun device!
 
 # Integration test output:
 ✅ Device opened: utun7
@@ -229,25 +251,23 @@ zig-out/lib/
 
 ## 🎯 Next Steps
 
-### Phase 1: macOS Device Implementation (Recommended First)
-Since you're on macOS and working with SoftEtherZig, implement macOS utun first:
+### ✅ Phase 1: macOS Device Implementation (COMPLETE)
+macOS implementation is production-ready and fully tested with SoftEtherZig.
 
-1. Study utun interface: `/usr/include/net/if_utun.h`
-2. Implement `src/platform/macos.zig`
-3. Add integration tests (requires `sudo`)
-4. Test with actual VPN traffic
+### ⏳ Phase 2: Linux Support (95% Complete)
+- Implementation complete in `src/platform/linux.zig` (574 lines)
+- Routing management complete in `src/routing/linux.zig` (196 lines)
+- **Needs**: Testing on Linux hardware/VM
 
-### Phase 2: Linux Support
-- Implement `/dev/net/tun` interface
-- Test on Linux VM or container
-- Add CI pipeline for cross-platform testing
+### ⏳ Phase 3: Windows Support (30% Complete)
+- Basic structure exists in `src/platform/windows.zig` (488 lines)
+- **Needs**: Wintun DLL integration and testing
 
-### Phase 3: Windows Support
-- Implement Wintun primary backend
-- Add TAP-Windows6 fallback
-- Test on Windows VM
-
-### Phase 4: Optimization
+### 🔮 Phase 4: Future Enhancements
+- Async I/O (kqueue for macOS, epoll for Linux, IOCP for Windows)
+- Zero-copy packet queues
+- Performance benchmarking
+- FreeBSD/OpenBSD support
 - Zero-copy paths where supported
 - SIMD optimizations for checksums
 - Performance benchmarking

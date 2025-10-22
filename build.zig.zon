@@ -1,8 +1,8 @@
 .{
-    .name = "taptun",
+    .fingerprint = 0x45a6117515f1a372,
+    .name = .taptun,
     .version = "0.1.0",
-    .description = "Cross-platform TAP/TUN library with L2↔L3 translation",
-    .minimum_zig_version = "0.13.0",
+    .minimum_zig_version = "0.15.0",
 
     .dependencies = .{},
 

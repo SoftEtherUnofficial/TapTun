@@ -379,7 +379,7 @@ test "Lease expiration" {
         .ip_address = [_]u8{ 192, 168, 1, 100 },
         .subnet_mask = [_]u8{ 255, 255, 255, 0 },
         .gateway = [_]u8{ 192, 168, 1, 1 },
-        .dns_servers = std.ArrayList([4]u8).init(std.testing.allocator),
+        .dns_servers = std.ArrayList([4]u8){},
         .lease_time = 3600,
         .renewal_time = 1800,
         .rebinding_time = 3150,
