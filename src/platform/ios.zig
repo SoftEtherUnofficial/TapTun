@@ -24,22 +24,22 @@ pub const iOSVpnDevice = struct {
     fd: i32, // Not used on iOS, kept for API compatibility
     name: []const u8,
     mtu: u32,
-    
+
     // Packet queues for async I/O
     read_queue: PacketQueue,
     write_queue: PacketQueue,
-    
+
     // Configuration
     ipv4_address: ?u32,
     ipv4_netmask: ?u32,
     ipv6_address: ?[16]u8,
     ipv6_prefix_length: ?u8,
-    
+
     // State
     is_active: bool,
-    
+
     const Self = @This();
-    
+
     /// Open iOS VPN device
     /// Note: On iOS, the actual device is managed by NEPacketTunnelProvider
     /// This creates the internal state and queues
@@ -47,7 +47,7 @@ pub const iOSVpnDevice = struct {
         const device_name = name orelse "iOS-VPN";
         const owned_name = try allocator.dupe(u8, device_name);
         errdefer allocator.free(owned_name);
-        
+
         return Self{
             .allocator = allocator,
             .fd = -1, // iOS doesn't use file descriptors
@@ -62,7 +62,7 @@ pub const iOSVpnDevice = struct {
             .is_active = false,
         };
     }
-    
+
     /// Close device and free resources
     pub fn close(self: *Self) void {
         self.is_active = false;
@@ -70,56 +70,56 @@ pub const iOSVpnDevice = struct {
         self.write_queue.deinit();
         self.allocator.free(self.name);
     }
-    
+
     /// Read packet from device
     /// On iOS, this reads from the packet queue populated by Swift callbacks
     pub fn read(self: *Self, buffer: []u8) !usize {
         if (!self.is_active) return error.DeviceNotActive;
-        
+
         // Try to dequeue a packet
         if (try self.read_queue.dequeue()) |packet| {
             defer self.allocator.free(packet);
-            
+
             if (packet.len > buffer.len) {
                 return error.BufferTooSmall;
             }
-            
+
             @memcpy(buffer[0..packet.len], packet);
             return packet.len;
         }
-        
+
         // No packets available
         return error.WouldBlock;
     }
-    
+
     /// Write packet to device
     /// On iOS, this enqueues packet for Swift to send via NEPacketFlow
     pub fn write(self: *Self, data: []const u8) !void {
         if (!self.is_active) return error.DeviceNotActive;
-        
+
         if (data.len > self.mtu) {
             return error.PacketTooLarge;
         }
-        
+
         // Make a copy and enqueue
         const packet_copy = try self.allocator.dupe(u8, data);
         errdefer self.allocator.free(packet_copy);
-        
+
         try self.write_queue.enqueue(packet_copy);
     }
-    
+
     /// Set IPv4 address and netmask
     pub fn setIpv4Address(self: *Self, address: u32, netmask: u32) !void {
         self.ipv4_address = address;
         self.ipv4_netmask = netmask;
     }
-    
+
     /// Set IPv6 address and prefix length
     pub fn setIpv6Address(self: *Self, address: [16]u8, prefix_len: u8) !void {
         self.ipv6_address = address;
         self.ipv6_prefix_length = prefix_len;
     }
-    
+
     /// Set MTU
     pub fn setMtu(self: *Self, mtu: u32) !void {
         if (mtu < 68 or mtu > 65535) {
@@ -127,22 +127,22 @@ pub const iOSVpnDevice = struct {
         }
         self.mtu = mtu;
     }
-    
+
     /// Get device name
     pub fn getName(self: *const Self) []const u8 {
         return self.name;
     }
-    
+
     /// Get MTU
     pub fn getMtu(self: *const Self) u32 {
         return self.mtu;
     }
-    
+
     /// Activate device (called when NEPacketTunnelProvider starts)
     pub fn activate(self: *Self) void {
         self.is_active = true;
     }
-    
+
     /// Deactivate device (called when NEPacketTunnelProvider stops)
     pub fn deactivate(self: *Self) void {
         self.is_active = false;
@@ -155,9 +155,9 @@ const PacketQueue = struct {
     packets: std.ArrayList([]const u8),
     mutex: std.Thread.Mutex,
     capacity: usize,
-    
+
     const Self = @This();
-    
+
     fn init(allocator: std.mem.Allocator, capacity: usize) !Self {
         return Self{
             .allocator = allocator,
@@ -166,7 +166,7 @@ const PacketQueue = struct {
             .capacity = capacity,
         };
     }
-    
+
     fn deinit(self: *Self) void {
         // Free all queued packets
         for (self.packets.items) |packet| {
@@ -174,29 +174,29 @@ const PacketQueue = struct {
         }
         self.packets.deinit();
     }
-    
+
     fn enqueue(self: *Self, packet: []const u8) !void {
         self.mutex.lock();
         defer self.mutex.unlock();
-        
+
         if (self.packets.items.len >= self.capacity) {
             return error.QueueFull;
         }
-        
+
         try self.packets.append(packet);
     }
-    
+
     fn dequeue(self: *Self) !?[]const u8 {
         self.mutex.lock();
         defer self.mutex.unlock();
-        
+
         if (self.packets.items.len == 0) {
             return null;
         }
-        
+
         return self.packets.orderedRemove(0);
     }
-    
+
     fn count(self: *Self) usize {
         self.mutex.lock();
         defer self.mutex.unlock();
@@ -240,17 +240,17 @@ fn errorToCode(err: anyerror) ZigTapTunError {
 /// Create iOS VPN device (called from Swift)
 export fn zig_taptun_ios_create(name: ?[*:0]const u8) ?ZigTapTunHandle {
     const allocator = std.heap.c_allocator;
-    
-    const device_name = if (name) |n| 
-        std.mem.span(n) 
-    else 
+
+    const device_name = if (name) |n|
+        std.mem.span(n)
+    else
         null;
-    
+
     const device = iOSVpnDevice.open(allocator, device_name) catch return null;
-    
+
     const device_ptr = allocator.create(iOSVpnDevice) catch return null;
     device_ptr.* = device;
-    
+
     return @ptrCast(device_ptr);
 }
 
@@ -282,16 +282,16 @@ export fn zig_taptun_ios_enqueue_read(
     length: usize,
 ) ZigTapTunError {
     const device: *iOSVpnDevice = @ptrCast(@alignCast(handle));
-    
+
     const packet = device.allocator.dupe(u8, data[0..length]) catch {
         return .OutOfMemory;
     };
-    
+
     device.read_queue.enqueue(packet) catch |err| {
         device.allocator.free(packet);
         return errorToCode(err);
     };
-    
+
     return .Success;
 }
 
@@ -304,23 +304,23 @@ export fn zig_taptun_ios_dequeue_write(
     out_length: *usize,
 ) ZigTapTunError {
     const device: *iOSVpnDevice = @ptrCast(@alignCast(handle));
-    
+
     const packet = device.write_queue.dequeue() catch |err| {
         return errorToCode(err);
     };
-    
+
     if (packet) |pkt| {
         defer device.allocator.free(pkt);
-        
+
         if (pkt.len > buffer_size) {
             return .BufferTooSmall;
         }
-        
+
         @memcpy(buffer[0..pkt.len], pkt);
         out_length.* = pkt.len;
         return .Success;
     }
-    
+
     return .WouldBlock;
 }
 
@@ -373,10 +373,10 @@ export fn zig_taptun_ios_set_ipv6(
 
 test "iOS device creation" {
     const allocator = std.testing.allocator;
-    
+
     var device = try iOSVpnDevice.open(allocator, "test-vpn");
     defer device.close();
-    
+
     try std.testing.expectEqualStrings("test-vpn", device.getName());
     try std.testing.expectEqual(@as(u32, 1500), device.getMtu());
     try std.testing.expectEqual(false, device.is_active);
@@ -384,34 +384,34 @@ test "iOS device creation" {
 
 test "iOS device activation" {
     const allocator = std.testing.allocator;
-    
+
     var device = try iOSVpnDevice.open(allocator, null);
     defer device.close();
-    
+
     try std.testing.expectEqual(false, device.is_active);
-    
+
     device.activate();
     try std.testing.expectEqual(true, device.is_active);
-    
+
     device.deactivate();
     try std.testing.expectEqual(false, device.is_active);
 }
 
 test "iOS packet queue" {
     const allocator = std.testing.allocator;
-    
+
     var queue = try PacketQueue.init(allocator, 10);
     defer queue.deinit();
-    
+
     const test_packet = "Hello, iOS!";
     const packet_copy = try allocator.dupe(u8, test_packet);
     try queue.enqueue(packet_copy);
-    
+
     try std.testing.expectEqual(@as(usize, 1), queue.count());
-    
+
     const dequeued = (try queue.dequeue()).?;
     defer allocator.free(dequeued);
-    
+
     try std.testing.expectEqualStrings(test_packet, dequeued);
     try std.testing.expectEqual(@as(usize, 0), queue.count());
 }
@@ -421,10 +421,10 @@ test "iOS C API" {
     const handle = zig_taptun_ios_create("test-vpn-c");
     try std.testing.expect(handle != null);
     defer zig_taptun_ios_destroy(handle.?);
-    
+
     // Activate
     zig_taptun_ios_activate(handle.?);
-    
+
     // Enqueue packet for reading
     const test_data = "Test packet data";
     const result = zig_taptun_ios_enqueue_read(
@@ -433,7 +433,7 @@ test "iOS C API" {
         test_data.len,
     );
     try std.testing.expectEqual(ZigTapTunError.Success, result);
-    
+
     // Deactivate
     zig_taptun_ios_deactivate(handle.?);
 }

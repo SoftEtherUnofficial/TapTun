@@ -1,11 +1,11 @@
 # ZigTapTun Project Status
 
 **Last Updated**: October 23, 2025  
-**Status**: ✅ **Production-Ready Core with macOS Support**
+**Status**: ✅ **Production-Ready Core with macOS, Mobile Platforms In Progress**
 
 ## 🎯 Quick Summary
 
-ZigTapTun is a cross-platform TAP/TUN library written in Zig (~4800 lines), focusing on L2↔L3 protocol translation for VPN applications. The core translation logic, macOS platform implementation, and routing management are **complete and production-ready**.
+ZigTapTun is a cross-platform TAP/TUN library written in Zig (~7800 lines), focusing on L2↔L3 protocol translation for VPN applications. The core translation logic, macOS platform implementation, and routing management are **complete and production-ready**. iOS and Android platforms have Phase 1 implementations complete (core modules + examples).
 
 ## ✅ Completed Components
 
@@ -193,6 +193,102 @@ TODO:
 - https://www.wintun.net/ (Wintun API)
 - https://git.zx2c4.com/wintun/ (Source code)
 
+#### iOS Implementation (40% COMPLETE) ⏳
+**File**: `src/platform/ios.zig` (459 lines - PHASE 1 COMPLETE)
+
+```zig
+DONE (Phase 1):
+- [x] iOSVpnDevice struct with Network Extension design
+- [x] Thread-safe packet queues for async I/O
+- [x] Activation/deactivation lifecycle
+- [x] IPv4/IPv6 configuration support
+- [x] MTU configuration
+- [x] Statistics tracking
+- [x] C API exports for Swift bridge
+- [x] Complete Swift PacketTunnelProvider example
+- [x] Bridging header with full API declarations
+- [x] Comprehensive setup and integration guide
+- [x] Memory-optimized for iOS 50MB extension limit
+- [x] Unit tests
+
+TODO (Phase 2):
+- [ ] Add iOS targets to build.zig (arm64-ios, x86_64-ios-simulator)
+- [ ] Create sample Xcode project
+- [ ] Integration tests on iOS Simulator
+- [ ] Real device testing (iPhone/iPad)
+- [ ] TestFlight beta testing
+- [ ] Battery usage profiling
+
+TODO (Phase 3):
+- [ ] On-demand VPN rules
+- [ ] Split tunneling configuration
+- [ ] iCloud settings sync
+- [ ] Today widget/shortcuts
+```
+
+**Status**: ⏳ **Phase 1 complete, build system & testing remain**
+
+**Files**:
+- Core: `src/platform/ios.zig`
+- Bridge: `examples/ios/ZigTapTun-Bridging-Header.h`
+- Swift: `examples/ios/PacketTunnelProvider.swift`
+- Docs: `examples/ios/README.md`
+
+**Requirements**:
+- iOS 14.0+ (target iOS 17.0+)
+- Network Extension entitlement
+- Apple Developer account
+- Xcode 14.0+
+
+#### Android Implementation (40% COMPLETE) ⏳
+**File**: `src/platform/android.zig` (409 lines - PHASE 1 COMPLETE)
+
+```zig
+DONE (Phase 1):
+- [x] AndroidVpnDevice struct with VpnService design
+- [x] File descriptor-based device abstraction
+- [x] Non-blocking I/O with O_NONBLOCK
+- [x] IPv4/IPv6 configuration tracking
+- [x] MTU configuration
+- [x] Statistics tracking (bytes/packets read/written)
+- [x] JNI C API exports for Java/Kotlin
+- [x] Complete VpnService Kotlin implementation
+- [x] JNI bridge header with ParcelFileDescriptor helpers
+- [x] CMake build configuration for multi-ABI
+- [x] Comprehensive setup and integration guide
+- [x] Unit tests
+
+TODO (Phase 2):
+- [ ] Complete CMake JNI wrapper (jni_wrapper.cpp)
+- [ ] Test build with Android NDK
+- [ ] Create sample Android Studio project
+- [ ] Integration tests on emulator
+- [ ] Real device testing (various manufacturers)
+- [ ] Multi-ABI verification (arm64-v8a, armeabi-v7a, x86_64, x86)
+
+TODO (Phase 3):
+- [ ] Split tunneling support
+- [ ] Always-on VPN configuration
+- [ ] Data usage statistics UI
+- [ ] Doze mode optimization
+- [ ] Battery impact profiling
+```
+
+**Status**: ⏳ **Phase 1 complete, build system & testing remain**
+
+**Files**:
+- Core: `src/platform/android.zig`
+- JNI: `examples/android/cpp/zigtaptun_android.h`
+- Kotlin: `examples/android/kotlin/ZigTapTunVpnService.kt`
+- Build: `examples/android/CMakeLists.txt`
+- Docs: `examples/android/README.md`
+
+**Requirements**:
+- Android 5.0+ (API 21, target API 34)
+- Android NDK r23+
+- Android Studio
+- Multi-ABI support: arm64-v8a, armeabi-v7a, x86_64, x86
+
 ## 📊 Test Results
 
 ```
@@ -207,8 +303,23 @@ Test Suite: ALL PASSING ✅
 
 Total: Multiple test suites passing (100%)
 Build time: ~1-2s
-Code base: ~4800 lines across 17 files
+Code base: ~7800 lines across 26 files (includes iOS/Android)
 ```
+
+## 📱 Platform Implementation Summary
+
+| Platform | Status | Completion | Files | Notes |
+|----------|--------|------------|-------|-------|
+| **macOS** | ✅ Complete | 100% | `src/platform/macos.zig` (241 lines) | Production-ready, fully tested |
+| **Linux** | ⏳ Ready | 95% | `src/platform/linux.zig` (574 lines) | Code complete, awaiting hardware testing |
+| **Windows** | ⏳ Partial | 30% | `src/platform/windows.zig` (488 lines) | Needs Wintun integration |
+| **iOS** | ⏳ Phase 1 | 40% | `src/platform/ios.zig` (459 lines) + examples | Core + examples done, build system next |
+| **Android** | ⏳ Phase 1 | 40% | `src/platform/android.zig` (409 lines) + examples | Core + examples done, build system next |
+| **FreeBSD** | ❌ Planned | 0% | Not started | Future roadmap |
+| **OpenBSD** | ❌ Planned | 0% | Not started | Future roadmap |
+
+**Total Platform Code:** ~2,600 lines across 5 platforms  
+**Total with Examples:** ~4,500 lines (mobile examples included)
 
 **Platform Tests**:
 ```bash
@@ -216,7 +327,13 @@ Code base: ~4800 lines across 17 files
 zig test src/platform/macos.zig         # Unit tests pass
 sudo zig test src/platform/macos.zig   # Integration tests pass, creates real utun device!
 
-# Integration test output:
+# Test iOS implementation  
+zig test src/platform/ios.zig          # Unit tests pass
+
+# Test Android implementation
+zig test src/platform/android.zig      # Unit tests pass
+
+# Integration test output (macOS):
 ✅ Device opened: utun7
    Unit: 0  
    MTU: 1500

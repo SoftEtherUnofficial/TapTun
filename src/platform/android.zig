@@ -27,22 +27,22 @@ pub const AndroidVpnDevice = struct {
     fd: i32,
     name: []const u8,
     mtu: u32,
-    
+
     // Configuration (set by VpnService.Builder)
     ipv4_address: ?u32,
     ipv4_netmask: ?u32,
     ipv6_address: ?[16]u8,
     ipv6_prefix_length: ?u8,
-    
+
     // State
     is_active: bool,
     bytes_read: u64,
     bytes_written: u64,
     packets_read: u64,
     packets_written: u64,
-    
+
     const Self = @This();
-    
+
     /// Open Android VPN device from file descriptor
     /// The FD is obtained from VpnService.Builder.establish()
     pub fn openFromFd(
@@ -51,14 +51,14 @@ pub const AndroidVpnDevice = struct {
         mtu: u32,
     ) !Self {
         if (fd < 0) return error.InvalidFileDescriptor;
-        
+
         // Set non-blocking mode
         const flags = try posix.fcntl(fd, posix.F.GETFL, 0);
         _ = try posix.fcntl(fd, posix.F.SETFL, flags | posix.O.NONBLOCK);
-        
+
         const name = try allocator.dupe(u8, "android-vpn");
         errdefer allocator.free(name);
-        
+
         return Self{
             .allocator = allocator,
             .fd = fd,
@@ -75,7 +75,7 @@ pub const AndroidVpnDevice = struct {
             .packets_written = 0,
         };
     }
-    
+
     /// Close device
     pub fn close(self: *Self) void {
         if (self.fd >= 0) {
@@ -85,82 +85,82 @@ pub const AndroidVpnDevice = struct {
         self.is_active = false;
         self.allocator.free(self.name);
     }
-    
+
     /// Read packet from device
     pub fn read(self: *Self, buffer: []u8) !usize {
         if (!self.is_active) return error.DeviceNotActive;
         if (self.fd < 0) return error.InvalidFileDescriptor;
-        
+
         const bytes_read = posix.read(self.fd, buffer) catch |err| {
             return switch (err) {
                 error.WouldBlock => error.WouldBlock,
                 else => error.ReadFailed,
             };
         };
-        
+
         if (bytes_read == 0) {
             // EOF - device closed
             self.is_active = false;
             return error.DeviceClosed;
         }
-        
+
         self.bytes_read += bytes_read;
         self.packets_read += 1;
-        
+
         return bytes_read;
     }
-    
+
     /// Write packet to device
     pub fn write(self: *Self, data: []const u8) !void {
         if (!self.is_active) return error.DeviceNotActive;
         if (self.fd < 0) return error.InvalidFileDescriptor;
-        
+
         if (data.len > self.mtu) {
             return error.PacketTooLarge;
         }
-        
+
         const bytes_written = posix.write(self.fd, data) catch |err| {
             return switch (err) {
                 error.WouldBlock => error.WouldBlock,
                 else => error.WriteFailed,
             };
         };
-        
+
         if (bytes_written != data.len) {
             return error.PartialWrite;
         }
-        
+
         self.bytes_written += bytes_written;
         self.packets_written += 1;
     }
-    
+
     /// Set IPv4 configuration (for tracking only - actual config done in Java)
     pub fn setIpv4Address(self: *Self, address: u32, netmask: u32) void {
         self.ipv4_address = address;
         self.ipv4_netmask = netmask;
     }
-    
+
     /// Set IPv6 configuration (for tracking only - actual config done in Java)
     pub fn setIpv6Address(self: *Self, address: [16]u8, prefix_len: u8) void {
         self.ipv6_address = address;
         self.ipv6_prefix_length = prefix_len;
     }
-    
+
     /// Get device name
     pub fn getName(self: *const Self) []const u8 {
         return self.name;
     }
-    
+
     /// Get MTU
     pub fn getMtu(self: *const Self) u32 {
         return self.mtu;
     }
-    
+
     /// Get file descriptor (for polling)
     pub fn getFd(self: *const Self) i32 {
         return self.fd;
     }
-    
+
     /// Get statistics
     pub fn getStats(self: *const Self) Stats {
         return Stats{
@@ -170,7 +170,7 @@ pub const AndroidVpnDevice = struct {
             .packets_written = self.packets_written,
         };
     }
-    
+
     pub const Stats = struct {
         bytes_read: u64,
         bytes_written: u64,
@@ -224,12 +224,12 @@ fn errorToCode(err: anyerror) ZigTapTunError {
 /// Called from Java after VpnService.Builder.establish()
 export fn zig_taptun_android_create(fd: i32, mtu: u32) ?ZigTapTunHandle {
     const allocator = std.heap.c_allocator;
-    
+
     const device = AndroidVpnDevice.openFromFd(allocator, fd, mtu) catch return null;
-    
+
     const device_ptr = allocator.create(AndroidVpnDevice) catch return null;
     device_ptr.* = device;
-    
+
     return @ptrCast(device_ptr);
 }
 
@@ -249,12 +249,12 @@ export fn zig_taptun_android_read(
     buffer_size: usize,
 ) i32 {
     const device: *AndroidVpnDevice = @ptrCast(@alignCast(handle));
-    
+
     const bytes_read = device.read(buffer[0..buffer_size]) catch |err| {
         const code = errorToCode(err);
         return @intFromEnum(code);
     };
-    
+
     return @intCast(bytes_read);
 }
 
@@ -265,11 +265,11 @@ export fn zig_taptun_android_write(
     length: usize,
 ) ZigTapTunError {
     const device: *AndroidVpnDevice = @ptrCast(@alignCast(handle));
-    
+
     device.write(data[0..length]) catch |err| {
         return errorToCode(err);
     };
-    
+
     return .Success;
 }
 
@@ -317,7 +317,7 @@ export fn zig_taptun_android_get_stats(
 ) void {
     const device: *AndroidVpnDevice = @ptrCast(@alignCast(handle));
     const stats = device.getStats();
-    
+
     out_bytes_read.* = stats.bytes_read;
     out_bytes_written.* = stats.bytes_written;
     out_packets_read.* = stats.packets_read;
@@ -332,10 +332,10 @@ test "Android device basic" {
     // Note: This test requires a valid file descriptor
     // In actual Android environment, this would come from VpnService
     // For testing, we can't easily create a TUN fd
-    
+
     // Test error handling with invalid FD
     const allocator = std.testing.allocator;
-    
+
     const result = AndroidVpnDevice.openFromFd(allocator, -1, 1500);
     try std.testing.expectError(error.InvalidFileDescriptor, result);
 }
@@ -345,12 +345,12 @@ test "Android JNI error codes" {
         ZigTapTunError.OutOfMemory,
         errorToCode(error.OutOfMemory),
     );
-    
+
     try std.testing.expectEqual(
         ZigTapTunError.InvalidFileDescriptor,
         errorToCode(error.InvalidFileDescriptor),
     );
-    
+
     try std.testing.expectEqual(
         ZigTapTunError.PacketTooLarge,
         errorToCode(error.PacketTooLarge),
