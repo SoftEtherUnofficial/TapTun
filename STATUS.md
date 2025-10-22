@@ -193,8 +193,8 @@ TODO:
 - https://www.wintun.net/ (Wintun API)
 - https://git.zx2c4.com/wintun/ (Source code)
 
-#### iOS Implementation (40% COMPLETE) ⏳
-**File**: `src/platform/ios.zig` (459 lines - PHASE 1 COMPLETE)
+#### iOS Implementation (60% COMPLETE) ⏳
+**File**: `src/platform/ios.zig` (459 lines - PHASE 1 & 2 COMPLETE)
 
 ```zig
 DONE (Phase 1):
@@ -211,22 +211,44 @@ DONE (Phase 1):
 - [x] Memory-optimized for iOS 50MB extension limit
 - [x] Unit tests
 
-TODO (Phase 2):
-- [ ] Add iOS targets to build.zig (arm64-ios, x86_64-ios-simulator)
+DONE (Phase 2):
+- [x] Add iOS targets to build.zig (arm64-ios, aarch64/x86_64 simulators)
+- [x] Build steps: ios-device, ios-sim-arm, ios-sim-x86, ios-all
+- [x] Cross-compilation verified and tested
+- [x] Documentation updated with build instructions
+
+TODO (Phase 3):
 - [ ] Create sample Xcode project
 - [ ] Integration tests on iOS Simulator
 - [ ] Real device testing (iPhone/iPad)
 - [ ] TestFlight beta testing
 - [ ] Battery usage profiling
 
-TODO (Phase 3):
+TODO (Phase 4):
 - [ ] On-demand VPN rules
 - [ ] Split tunneling configuration
 - [ ] iCloud settings sync
 - [ ] Today widget/shortcuts
 ```
 
-**Status**: ⏳ **Phase 1 complete, build system & testing remain**
+**Status**: ⏳ **Phases 1-2 complete (core + build system), integration testing remains**
+
+**Build Commands**:
+```bash
+# iOS device (ARM64)
+zig build ios-device -Doptimize=ReleaseFast
+
+# iOS Simulator (Apple Silicon)
+zig build ios-sim-arm -Doptimize=ReleaseFast
+
+# iOS Simulator (Intel)
+zig build ios-sim-x86 -Doptimize=ReleaseFast
+
+# All iOS targets
+zig build ios-all -Doptimize=ReleaseFast
+```
+
+**Output**: `zig-out/lib/aarch64-ios/libtaptun-aarch64-ios.a`
 
 **Files**:
 - Core: `src/platform/ios.zig`
@@ -240,8 +262,8 @@ TODO (Phase 3):
 - Apple Developer account
 - Xcode 14.0+
 
-#### Android Implementation (40% COMPLETE) ⏳
-**File**: `src/platform/android.zig` (409 lines - PHASE 1 COMPLETE)
+#### Android Implementation (60% COMPLETE) ⏳
+**File**: `src/platform/android.zig` (409 lines - PHASE 1 & 2 COMPLETE)
 
 ```zig
 DONE (Phase 1):
@@ -258,15 +280,21 @@ DONE (Phase 1):
 - [x] Comprehensive setup and integration guide
 - [x] Unit tests
 
-TODO (Phase 2):
+DONE (Phase 2):
+- [x] Add Android targets to build.zig (all ABIs)
+- [x] Build steps: android-arm64, android-arm, android-x86_64, android-x86, android-all
+- [x] Cross-compilation verified for all ABIs
+- [x] Documentation updated with build instructions
+
+TODO (Phase 3):
 - [ ] Complete CMake JNI wrapper (jni_wrapper.cpp)
 - [ ] Test build with Android NDK
 - [ ] Create sample Android Studio project
 - [ ] Integration tests on emulator
 - [ ] Real device testing (various manufacturers)
-- [ ] Multi-ABI verification (arm64-v8a, armeabi-v7a, x86_64, x86)
+- [ ] Multi-ABI runtime verification
 
-TODO (Phase 3):
+TODO (Phase 4):
 - [ ] Split tunneling support
 - [ ] Always-on VPN configuration
 - [ ] Data usage statistics UI
@@ -274,7 +302,31 @@ TODO (Phase 3):
 - [ ] Battery impact profiling
 ```
 
-**Status**: ⏳ **Phase 1 complete, build system & testing remain**
+**Status**: ⏳ **Phases 1-2 complete (core + build system), integration testing remains**
+
+**Build Commands**:
+```bash
+# Android ARM64 (arm64-v8a)
+zig build android-arm64 -Doptimize=ReleaseFast
+
+# Android ARMv7 (armeabi-v7a)
+zig build android-arm -Doptimize=ReleaseFast
+
+# Android x86_64
+zig build android-x86_64 -Doptimize=ReleaseFast
+
+# Android x86
+zig build android-x86 -Doptimize=ReleaseFast
+
+# All Android ABIs
+zig build android-all -Doptimize=ReleaseFast
+```
+
+**Outputs**:
+- `zig-out/lib/aarch64-linux-android/libtaptun-aarch64-linux-android.a`
+- `zig-out/lib/arm-linux-androideabi/libtaptun-arm-linux-androideabi.a`
+- `zig-out/lib/x86_64-linux-android/libtaptun-x86_64-linux-android.a`
+- `zig-out/lib/x86-linux-android/libtaptun-x86-linux-android.a`
 
 **Files**:
 - Core: `src/platform/android.zig`
@@ -313,13 +365,48 @@ Code base: ~7800 lines across 26 files (includes iOS/Android)
 | **macOS** | ✅ Complete | 100% | `src/platform/macos.zig` (241 lines) | Production-ready, fully tested |
 | **Linux** | ⏳ Ready | 95% | `src/platform/linux.zig` (574 lines) | Code complete, awaiting hardware testing |
 | **Windows** | ⏳ Partial | 30% | `src/platform/windows.zig` (488 lines) | Needs Wintun integration |
-| **iOS** | ⏳ Phase 1 | 40% | `src/platform/ios.zig` (459 lines) + examples | Core + examples done, build system next |
-| **Android** | ⏳ Phase 1 | 40% | `src/platform/android.zig` (409 lines) + examples | Core + examples done, build system next |
+| **iOS** | ⏳ Phase 2 | 60% | `src/platform/ios.zig` (459 lines) + examples | Core + examples + build system done |
+| **Android** | ⏳ Phase 2 | 60% | `src/platform/android.zig` (409 lines) + examples | Core + examples + build system done |
 | **FreeBSD** | ❌ Planned | 0% | Not started | Future roadmap |
 | **OpenBSD** | ❌ Planned | 0% | Not started | Future roadmap |
 
 **Total Platform Code:** ~2,600 lines across 5 platforms  
 **Total with Examples:** ~4,500 lines (mobile examples included)
+
+### Build System Mobile Support
+
+Mobile platform cross-compilation is now fully supported in `build.zig`:
+
+**iOS Build Targets:**
+- `zig build ios-device` - iPhone/iPad (arm64)
+- `zig build ios-sim-arm` - Simulator (Apple Silicon)
+- `zig build ios-sim-x86` - Simulator (Intel)
+- `zig build ios-all` - All iOS targets
+
+**Android Build Targets:**
+- `zig build android-arm64` - ARM64 (arm64-v8a)
+- `zig build android-arm` - ARMv7 (armeabi-v7a)
+- `zig build android-x86_64` - x86_64
+- `zig build android-x86` - x86 (i686)
+- `zig build android-all` - All Android ABIs
+
+**Universal:**
+- `zig build mobile` - Build all mobile platforms (iOS + Android)
+
+**Output Structure:**
+```
+zig-out/lib/
+├── aarch64-ios/libtaptun-aarch64-ios.a
+├── aarch64-ios-simulator/libtaptun-aarch64-ios-simulator.a
+├── x86_64-ios-simulator/libtaptun-x86_64-ios-simulator.a
+├── aarch64-linux-android/libtaptun-aarch64-linux-android.a
+├── arm-linux-androideabi/libtaptun-arm-linux-androideabi.a
+├── x86_64-linux-android/libtaptun-x86_64-linux-android.a
+└── x86-linux-android/libtaptun-x86-linux-android.a
+```
+
+**Verification:**
+All mobile targets tested and building successfully on macOS with Zig 0.15.1.
 
 **Platform Tests**:
 ```bash

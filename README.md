@@ -67,6 +67,194 @@ A high-performance, cross-platform TAP/TUN interface library written in Zig with
 - Clone device support
 - Automatic device creation
 
+#### iOS
+- Network Extension framework integration
+- NEPacketTunnelProvider support
+- Memory-efficient design (<50MB)
+- App Sandbox compatible
+- See [examples/ios/README.md](examples/ios/README.md) for setup guide
+
+#### Android
+- VpnService API integration
+- JNI bridge for Kotlin/Java
+- Multi-ABI support (arm64-v8a, armeabi-v7a, x86_64, x86)
+- Background service support
+- See [examples/android/README.md](examples/android/README.md) for setup guide
+
+## Building
+
+### Prerequisites
+
+- **Zig 0.15.1 or later** - [Download](https://ziglang.org/download/)
+- **For iOS builds**: Xcode with iOS SDK installed
+- **For Android builds**: Android NDK (optional, Zig can cross-compile)
+
+### Desktop Platforms
+
+#### Build for current platform
+```bash
+zig build                           # Debug build
+zig build -Doptimize=ReleaseFast   # Release build
+```
+
+#### Run tests
+```bash
+zig build test                     # Unit tests
+zig build bench                    # Benchmarks
+zig build run-bench                # Run benchmarks
+```
+
+#### Cross-compile for other desktop platforms
+```bash
+# macOS (from Linux/Windows)
+zig build -Dtarget=aarch64-macos -Doptimize=ReleaseFast
+
+# Linux (from macOS/Windows)
+zig build -Dtarget=x86_64-linux -Doptimize=ReleaseFast
+
+# Windows (from macOS/Linux)
+zig build -Dtarget=x86_64-windows -Doptimize=ReleaseFast
+```
+
+### Mobile Platforms
+
+#### iOS
+
+Build for iOS device (ARM64):
+```bash
+zig build ios-device -Doptimize=ReleaseFast
+```
+
+Build for iOS Simulator (Apple Silicon):
+```bash
+zig build ios-sim-arm -Doptimize=ReleaseFast
+```
+
+Build for iOS Simulator (Intel):
+```bash
+zig build ios-sim-x86 -Doptimize=ReleaseFast
+```
+
+Build for all iOS targets:
+```bash
+zig build ios-all -Doptimize=ReleaseFast
+```
+
+**Output location:** `zig-out/lib/aarch64-ios/libtaptun-aarch64-ios.a`
+
+**Integration with Xcode:**
+1. Add the static library to your Xcode project
+2. Add the bridging header: `examples/ios/ZigTapTun-Bridging-Header.h`
+3. See [examples/ios/README.md](examples/ios/README.md) for complete setup
+
+#### Android
+
+Build for Android ARM64 (arm64-v8a):
+```bash
+zig build android-arm64 -Doptimize=ReleaseFast
+```
+
+Build for Android ARMv7 (armeabi-v7a):
+```bash
+zig build android-arm -Doptimize=ReleaseFast
+```
+
+Build for Android x86_64:
+```bash
+zig build android-x86_64 -Doptimize=ReleaseFast
+```
+
+Build for Android x86:
+```bash
+zig build android-x86 -Doptimize=ReleaseFast
+```
+
+Build for all Android ABIs:
+```bash
+zig build android-all -Doptimize=ReleaseFast
+```
+
+**Output locations:**
+- `zig-out/lib/aarch64-linux-android/libtaptun-aarch64-linux-android.a`
+- `zig-out/lib/arm-linux-androideabi/libtaptun-arm-linux-androideabi.a`
+- `zig-out/lib/x86_64-linux-android/libtaptun-x86_64-linux-android.a`
+- `zig-out/lib/x86-linux-android/libtaptun-x86-linux-android.a`
+
+**Integration with Android Studio:**
+1. Add the static libraries to your `jniLibs` directory
+2. Configure CMake to link the libraries
+3. Add the JNI header: `examples/android/cpp/zigtaptun_android.h`
+4. See [examples/android/README.md](examples/android/README.md) for complete setup
+
+#### Build all mobile platforms
+```bash
+zig build mobile -Doptimize=ReleaseFast
+```
+
+This builds:
+- iOS device (arm64)
+- iOS Simulator (arm64 + x86_64)
+- Android (arm64-v8a + armeabi-v7a + x86_64 + x86)
+
+### Library Outputs
+
+After building, you'll find:
+
+**Desktop:**
+- `zig-out/lib/libtaptun.a` - Static library
+- `zig-out/lib/libtaptun.dylib` (macOS) / `.so` (Linux) / `.dll` (Windows) - Shared library
+
+**iOS:**
+- `zig-out/lib/aarch64-ios/libtaptun-aarch64-ios.a` - iPhone/iPad (device)
+- `zig-out/lib/aarch64-ios-simulator/libtaptun-aarch64-ios-simulator.a` - Simulator (Apple Silicon)
+- `zig-out/lib/x86_64-ios-simulator/libtaptun-x86_64-ios-simulator.a` - Simulator (Intel)
+
+**Android:**
+- `zig-out/lib/aarch64-linux-android/libtaptun-aarch64-linux-android.a` - ARM64 (arm64-v8a)
+- `zig-out/lib/arm-linux-androideabi/libtaptun-arm-linux-androideabi.a` - ARMv7 (armeabi-v7a)
+- `zig-out/lib/x86_64-linux-android/libtaptun-x86_64-linux-android.a` - x86_64
+- `zig-out/lib/x86-linux-android/libtaptun-x86-linux-android.a` - x86 (i686)
+
+### Using in Your Project
+
+#### As a Zig module (build.zig.zon)
+```zig
+.{
+    .name = "my-vpn-client",
+    .version = "0.1.0",
+    .dependencies = .{
+        .taptun = .{
+            .url = "https://github.com/YourOrg/ZigTapTun/archive/main.tar.gz",
+            .hash = "...",
+        },
+    },
+}
+```
+
+Then in your `build.zig`:
+```zig
+const taptun = b.dependency("taptun", .{
+    .target = target,
+    .optimize = optimize,
+});
+
+exe.root_module.addImport("taptun", taptun.module("taptun"));
+```
+
+#### As a C library
+```c
+#include "taptun.h"  // Generated header (TODO: provide this)
+
+int main(void) {
+    // Use C API...
+}
+```
+
+Link with:
+```bash
+gcc myapp.c -L./zig-out/lib -ltaptun -o myapp
+```
+
 ## Architecture
 
 ```
