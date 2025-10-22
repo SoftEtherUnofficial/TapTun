@@ -259,6 +259,118 @@ pub fn getLearnedIp(self: *Translator) ?u32;
 pub fn getGatewayMac(self: *Translator) ?[6]u8;
 ```
 
+## Memory Management
+
+### Overview
+
+The `L2L3Translator` API allocates memory for converted packets. **Callers are responsible for freeing returned slices.**
+
+### Memory Ownership Rules
+
+#### `ipToEthernet()` - Always Allocates
+```zig
+pub fn ipToEthernet(self: *Translator, ip_packet: []const u8) ![]const u8
+```
+
+**Allocates:** New Ethernet frame (14-byte header + IP packet)  
+**Caller must:** Free the returned slice
+
+**Example:**
+```zig
+const ip_packet = ...; // From TUN device
+const eth_frame = try translator.ipToEthernet(ip_packet);
+defer translator.allocator.free(eth_frame); // ← Must free!
+
+// Use eth_frame (send to VPN server, etc.)
+```
+
+#### `ethernetToIp()` - Conditionally Allocates
+```zig
+pub fn ethernetToIp(self: *Translator, eth_frame: []const u8) !?[]const u8
+```
+
+**Returns:**
+- `null` if frame was handled internally (e.g., ARP response)
+- **Allocated** IP packet slice if conversion succeeded
+
+**Caller must:** Free the returned slice if not null
+
+**Example:**
+```zig
+const eth_frame = ...; // From VPN server
+
+if (try translator.ethernetToIp(eth_frame)) |ip_packet| {
+    defer translator.allocator.free(ip_packet); // ← Must free!
+    
+    // Use ip_packet (write to TUN device, etc.)
+} else {
+    // Frame was handled internally (ARP, etc.)
+    // No memory to free
+}
+```
+
+### Common Patterns
+
+#### Pattern 1: Immediate Use
+```zig
+const eth_frame = try translator.ipToEthernet(ip_packet);
+defer translator.allocator.free(eth_frame);
+
+try vpn_socket.send(eth_frame);
+```
+
+#### Pattern 2: Store in Queue
+```zig
+const eth_frame = try translator.ipToEthernet(ip_packet);
+errdefer translator.allocator.free(eth_frame);
+
+try packet_queue.append(eth_frame); // Queue takes ownership
+// Queue must free when processing packets
+```
+
+#### Pattern 3: Batch Processing
+```zig
+var packets = std.ArrayList([]const u8).init(allocator);
+defer {
+    for (packets.items) |pkt| {
+        translator.allocator.free(pkt);
+    }
+    packets.deinit();
+}
+
+while (try getNextFrame()) |frame| {
+    if (try translator.ethernetToIp(frame)) |ip_pkt| {
+        try packets.append(ip_pkt);
+    }
+}
+
+// Process all packets...
+```
+
+### Benchmarks
+
+See [`bench/throughput.zig`](bench/throughput.zig) and [`bench/latency.zig`](bench/latency.zig) for complete examples of proper memory management.
+
+**Performance Impact:**
+- Allocation overhead: ~2 µs per packet
+- Total processing: ~7-11 µs per packet (including allocation + free)
+- Throughput: ~1 Gbps, ~87K packets/sec (Debug build)
+
+### Memory Leak Detection
+
+Run tests with leak detection:
+```bash
+zig build test
+# GPA will report any leaks automatically
+```
+
+Run benchmarks to verify zero leaks:
+```bash
+zig build bench
+./zig-out/bin/throughput  # Should show no leak errors
+./zig-out/bin/latency     # Should show no leak errors
+```
+
 ## Integration with SoftEtherZig
 
 ```zig

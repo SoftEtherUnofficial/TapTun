@@ -86,6 +86,20 @@ pub const L2L3Translator = struct {
 
     /// Convert IP packet (L3) to Ethernet frame (L2)
     /// Used when sending packets from TUN device to network/VPN that expects Ethernet frames
+    ///
+    /// **Memory Management:**
+    /// This function allocates a new buffer for the Ethernet frame.
+    /// The caller is responsible for freeing the returned slice using the same allocator.
+    ///
+    /// Example:
+    /// ```zig
+    /// const eth_frame = try translator.ipToEthernet(ip_packet);
+    /// defer translator.allocator.free(eth_frame); // Caller must free!
+    /// // ... use eth_frame ...
+    /// ```
+    ///
+    /// Returns: Allocated Ethernet frame (14-byte header + IP packet)
+    /// Errors: InvalidPacket if the IP packet is malformed
     pub fn ipToEthernet(self: *Self, ip_packet: []const u8) ![]const u8 {
         if (ip_packet.len == 0) return error.InvalidPacket;
 
@@ -131,7 +145,24 @@ pub const L2L3Translator = struct {
 
     /// Convert Ethernet frame (L2) to IP packet (L3)
     /// Used when receiving Ethernet frames from network/VPN to write to TUN device
-    /// Returns null if frame was handled internally (e.g., ARP)
+    ///
+    /// **Memory Management:**
+    /// - Returns `null` if the frame was handled internally (e.g., ARP reply)
+    /// - Returns an **allocated** IP packet slice if conversion succeeded
+    /// - The caller is responsible for freeing the returned slice using the same allocator
+    ///
+    /// Example:
+    /// ```zig
+    /// if (try translator.ethernetToIp(eth_frame)) |ip_packet| {
+    ///     defer translator.allocator.free(ip_packet); // Caller must free!
+    ///     // ... use ip_packet ...
+    /// } else {
+    ///     // Frame was handled internally (e.g., ARP)
+    /// }
+    /// ```
+    ///
+    /// Returns: Optional allocated IP packet slice (null if handled internally)
+    /// Errors: InvalidPacket if the Ethernet frame is malformed
     pub fn ethernetToIp(self: *Self, eth_frame: []const u8) !?[]const u8 {
         if (eth_frame.len < 14) return error.InvalidPacket;
 
