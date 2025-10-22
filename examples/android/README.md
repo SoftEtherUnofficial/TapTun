@@ -37,9 +37,9 @@ Android provides VPN functionality through the **VpnService** API. The system gi
 ## Files
 
 ### Native Code
-- **`cpp/zigtaptun_android.h`** - JNI bridge header
-- **`cpp/jni_wrapper.cpp`** - JNI wrapper implementation (minimal, exports Zig functions)
-- **`CMakeLists.txt`** - CMake build configuration
+- **`cpp/zigtaptun_android.h`** - JNI bridge header with C API declarations
+- **`cpp/jni_wrapper.cpp`** - JNI wrapper implementation (bridges Java/Kotlin to Zig)
+- **`CMakeLists.txt`** - CMake build configuration for multi-ABI builds
 
 ### Kotlin/Java Code
 - **`kotlin/ZigTapTunVpnService.kt`** - Example VpnService implementation
