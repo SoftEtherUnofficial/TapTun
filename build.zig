@@ -74,4 +74,47 @@ pub fn build(b: *std.Build) void {
 
     const docs_step = b.step("docs", "Generate documentation");
     docs_step.dependOn(&install_docs.step);
+
+    // Benchmark executables
+    const throughput_module = b.createModule(.{
+        .root_source_file = b.path("bench/throughput.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    throughput_module.addImport("taptun", taptun_module);
+
+    const throughput_exe = std.Build.Step.Compile.create(b, .{
+        .name = "throughput",
+        .root_module = throughput_module,
+        .kind = .exe,
+        .linkage = null,
+    });
+
+    const latency_module = b.createModule(.{
+        .root_source_file = b.path("bench/latency.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    latency_module.addImport("taptun", taptun_module);
+
+    const latency_exe = std.Build.Step.Compile.create(b, .{
+        .name = "latency",
+        .root_module = latency_module,
+        .kind = .exe,
+        .linkage = null,
+    });
+
+    const install_throughput = b.addInstallArtifact(throughput_exe, .{});
+    const install_latency = b.addInstallArtifact(latency_exe, .{});
+
+    const bench_step = b.step("bench", "Build benchmarks");
+    bench_step.dependOn(&install_throughput.step);
+    bench_step.dependOn(&install_latency.step);
+
+    const run_throughput = b.addRunArtifact(throughput_exe);
+    const run_latency = b.addRunArtifact(latency_exe);
+
+    const run_bench_step = b.step("run-bench", "Run all benchmarks");
+    run_bench_step.dependOn(&run_throughput.step);
+    run_bench_step.dependOn(&run_latency.step);
 }
