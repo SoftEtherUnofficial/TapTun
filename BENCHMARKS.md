@@ -6,6 +6,30 @@
 **Build:** Debug mode  
 **Zig Version:** 0.15.1
 
+### Throughput Benchmark (Ethernet→IP Translation)
+
+**Test Configuration:**
+- Packet sizes: 64, 128, 256, 512, 1024, 1400 bytes
+- Iterations: 10,000 per size
+- Operation: Strip Ethernet header, validate, return IP packet slice
+
+**Results:**
+```
+Packet Size    Throughput      Packets/sec    Latency
+64 bytes       35.00 Mbps      68,367 pps     14.63 µs
+128 bytes      86.57 Mbps      84,541 pps     11.83 µs
+256 bytes      177.03 Mbps     86,442 pps     11.57 µs
+512 bytes      358.49 Mbps     87,522 pps     11.43 µs
+1024 bytes     703.86 Mbps     85,921 pps     11.64 µs
+1400 bytes     973.04 Mbps     86,879 pps     11.51 µs
+```
+
+**Analysis:**
+- **Peak throughput:** ~1 Gbps (1400-byte packets)
+- **Sustained rate:** ~87K packets/sec across all sizes
+- **Average latency:** ~11-12 µs per packet
+- **Memory:** Zero leaks ✅
+
 ### Latency Benchmark (Ethernet→IP Translation)
 
 **Test Configuration:**
@@ -32,15 +56,15 @@ Max:     77.00 µs
 
 ### Next Steps
 
-1. **Fix Memory Management** (ZTT-20)
-   - Current benchmarks leak memory
-   - Need to properly free allocated slices
+1. **Fix Remaining Memory Issues** (ZTT-20)
+   - ✅ Throughput benchmark fixed
+   - ⏳ Latency benchmark needs same fix
    - Document memory ownership rules
 
 2. **Run Release Build**
    - Current numbers are Debug mode
    - Release mode expected 2-3x faster
-   - Target: <2 µs median latency
+   - Target: <2 µs median latency, >200K pps sustained
 
 3. **Platform Comparison**
    - Test on Linux (after ZTT-3 validation)
