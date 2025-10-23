@@ -10,7 +10,7 @@ zig build docs                      # Generate docs
 
 # Development
 zig build test --summary all        # Verbose test output
-zig build -Doptimize=ReleaseFast    # Optimized build
+zig build -Drelease=true    # Optimized build
 ```
 
 ## Project Structure

@@ -65,10 +65,10 @@ Your app needs these entitlements:
 cd /path/to/ZigTapTun
 
 # Build for iOS device (ARM64)
-zig build -Dtarget=aarch64-ios -Doptimize=ReleaseFast
+zig build -Dtarget=aarch64-ios -Drelease=true
 
 # Build for iOS Simulator (x86_64 or ARM64)
-zig build -Dtarget=aarch64-ios-simulator -Doptimize=ReleaseFast
+zig build -Dtarget=aarch64-ios-simulator -Drelease=true
 
 # The static library will be in: zig-out/lib/libtaptun.a
 ```
@@ -249,7 +249,7 @@ sudo tcpdump -i utun7 -n -vv
 ### Build Errors
 ```bash
 # Rebuild ZigTapTun for correct architecture
-zig build -Dtarget=aarch64-ios -Doptimize=ReleaseFast
+zig build -Dtarget=aarch64-ios -Drelease=true
 
 # Clean Xcode build folder
 Product → Clean Build Folder (Shift+Cmd+K)

@@ -94,7 +94,7 @@ A high-performance, cross-platform TAP/TUN interface library written in Zig with
 #### Build for current platform
 ```bash
 zig build                           # Debug build
-zig build -Doptimize=ReleaseFast   # Release build
+zig build -Drelease=true   # Release build
 ```
 
 #### Run tests
@@ -107,13 +107,13 @@ zig build run-bench                # Run benchmarks
 #### Cross-compile for other desktop platforms
 ```bash
 # macOS (from Linux/Windows)
-zig build -Dtarget=aarch64-macos -Doptimize=ReleaseFast
+zig build -Dtarget=aarch64-macos -Drelease=true
 
 # Linux (from macOS/Windows)
-zig build -Dtarget=x86_64-linux -Doptimize=ReleaseFast
+zig build -Dtarget=x86_64-linux -Drelease=true
 
 # Windows (from macOS/Linux)
-zig build -Dtarget=x86_64-windows -Doptimize=ReleaseFast
+zig build -Dtarget=x86_64-windows -Drelease=true
 ```
 
 ### Mobile Platforms
@@ -122,22 +122,22 @@ zig build -Dtarget=x86_64-windows -Doptimize=ReleaseFast
 
 Build for iOS device (ARM64):
 ```bash
-zig build ios-device -Doptimize=ReleaseFast
+zig build ios-device -Drelease=true
 ```
 
 Build for iOS Simulator (Apple Silicon):
 ```bash
-zig build ios-sim-arm -Doptimize=ReleaseFast
+zig build ios-sim-arm -Drelease=true
 ```
 
 Build for iOS Simulator (Intel):
 ```bash
-zig build ios-sim-x86 -Doptimize=ReleaseFast
+zig build ios-sim-x86 -Drelease=true
 ```
 
 Build for all iOS targets:
 ```bash
-zig build ios-all -Doptimize=ReleaseFast
+zig build ios-all -Drelease=true
 ```
 
 **Output location:** `zig-out/lib/aarch64-ios/libtaptun-aarch64-ios.a`
@@ -151,27 +151,27 @@ zig build ios-all -Doptimize=ReleaseFast
 
 Build for Android ARM64 (arm64-v8a):
 ```bash
-zig build android-arm64 -Doptimize=ReleaseFast
+zig build android-arm64 -Drelease=true
 ```
 
 Build for Android ARMv7 (armeabi-v7a):
 ```bash
-zig build android-arm -Doptimize=ReleaseFast
+zig build android-arm -Drelease=true
 ```
 
 Build for Android x86_64:
 ```bash
-zig build android-x86_64 -Doptimize=ReleaseFast
+zig build android-x86_64 -Drelease=true
 ```
 
 Build for Android x86:
 ```bash
-zig build android-x86 -Doptimize=ReleaseFast
+zig build android-x86 -Drelease=true
 ```
 
 Build for all Android ABIs:
 ```bash
-zig build android-all -Doptimize=ReleaseFast
+zig build android-all -Drelease=true
 ```
 
 **Output locations:**
@@ -188,7 +188,7 @@ zig build android-all -Doptimize=ReleaseFast
 
 #### Build all mobile platforms
 ```bash
-zig build mobile -Doptimize=ReleaseFast
+zig build mobile -Drelease=true
 ```
 
 This builds:

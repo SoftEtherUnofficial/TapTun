@@ -30,7 +30,7 @@ add_custom_command(
     OUTPUT ${ZIG_LIB_OUTPUT}
     COMMAND ${ZIG_COMPILER} build
         -Dtarget=${ZIG_TARGET}
-        -Doptimize=ReleaseFast
+        -Drelease=true
         --prefix ${ZIG_BUILD_DIR}
         --prefix-lib-dir ${ZIG_BUILD_DIR}
     WORKING_DIRECTORY ${ZIG_SRC_DIR}

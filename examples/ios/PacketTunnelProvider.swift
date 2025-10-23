@@ -249,7 +249,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     
  4. Build ZigTapTun for iOS:
     ```bash
-    zig build -Dtarget=aarch64-ios -Doptimize=ReleaseFast
+    zig build -Dtarget=aarch64-ios -Drelease=true
     ```
     
  5. In your main app, start VPN:

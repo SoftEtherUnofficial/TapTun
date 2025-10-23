@@ -236,16 +236,16 @@ TODO (Phase 4):
 **Build Commands**:
 ```bash
 # iOS device (ARM64)
-zig build ios-device -Doptimize=ReleaseFast
+zig build ios-device -Drelease=true
 
 # iOS Simulator (Apple Silicon)
-zig build ios-sim-arm -Doptimize=ReleaseFast
+zig build ios-sim-arm -Drelease=true
 
 # iOS Simulator (Intel)
-zig build ios-sim-x86 -Doptimize=ReleaseFast
+zig build ios-sim-x86 -Drelease=true
 
 # All iOS targets
-zig build ios-all -Doptimize=ReleaseFast
+zig build ios-all -Drelease=true
 ```
 
 **Output**: `zig-out/lib/aarch64-ios/libtaptun-aarch64-ios.a`
@@ -307,19 +307,19 @@ TODO (Phase 4):
 **Build Commands**:
 ```bash
 # Android ARM64 (arm64-v8a)
-zig build android-arm64 -Doptimize=ReleaseFast
+zig build android-arm64 -Drelease=true
 
 # Android ARMv7 (armeabi-v7a)
-zig build android-arm -Doptimize=ReleaseFast
+zig build android-arm -Drelease=true
 
 # Android x86_64
-zig build android-x86_64 -Doptimize=ReleaseFast
+zig build android-x86_64 -Drelease=true
 
 # Android x86
-zig build android-x86 -Doptimize=ReleaseFast
+zig build android-x86 -Drelease=true
 
 # All Android ABIs
-zig build android-all -Doptimize=ReleaseFast
+zig build android-all -Drelease=true
 ```
 
 **Outputs**:

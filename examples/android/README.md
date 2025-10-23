@@ -178,10 +178,10 @@ The CMake configuration will automatically build the Zig library during Android 
 cd /path/to/ZigTapTun
 
 # Build for each Android ABI
-zig build -Dtarget=aarch64-linux-android -Doptimize=ReleaseFast
-zig build -Dtarget=armv7a-linux-androideabi -Doptimize=ReleaseFast
-zig build -Dtarget=x86_64-linux-android -Doptimize=ReleaseFast
-zig build -Dtarget=i386-linux-android -Doptimize=ReleaseFast
+zig build -Dtarget=aarch64-linux-android -Drelease=true
+zig build -Dtarget=armv7a-linux-androideabi -Drelease=true
+zig build -Dtarget=x86_64-linux-android -Drelease=true
+zig build -Dtarget=i386-linux-android -Drelease=true
 ```
 
 ### 6. Build and Run
