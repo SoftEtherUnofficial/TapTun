@@ -178,7 +178,7 @@ pub export fn taptun_translator_has_gateway_mac(handle: ?*TapTunTranslator) c_in
 
 /// Get learned gateway MAC address
 /// @param out_mac: 6-byte buffer to receive MAC address
-/// @return 1 if MAC was learned, 0 if not
+/// @return 1 if MAC was learned and copied, 0 if not learned
 pub export fn taptun_translator_get_gateway_mac(
     handle: ?*TapTunTranslator,
     out_mac: [*]u8,
@@ -191,6 +191,34 @@ pub export fn taptun_translator_get_gateway_mac(
     }
 
     return 0;
+}
+
+/// Manually set our IP address (required for ARP reply generation)
+/// @param handle: Translator handle
+/// @param ip: IP address in network byte order (big endian)
+pub export fn taptun_translator_set_our_ip(
+    handle: ?*TapTunTranslator,
+    ip: u32,
+) void {
+    const translator: *taptun.L2L3Translator = @ptrCast(@alignCast(handle orelse return));
+    translator.setOurIp(ip);
+    std.debug.print("[TapTun C FFI] ✅ Set our IP: {}.{}.{}.{}\n", .{
+        (ip >> 24) & 0xFF, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF,
+    });
+}
+
+/// Manually set gateway IP address
+/// @param handle: Translator handle
+/// @param gateway_ip: Gateway IP address in network byte order (big endian)
+pub export fn taptun_translator_set_gateway_ip(
+    handle: ?*TapTunTranslator,
+    gateway_ip: u32,
+) void {
+    const translator: *taptun.L2L3Translator = @ptrCast(@alignCast(handle orelse return));
+    translator.setGateway(gateway_ip);
+    std.debug.print("[TapTun C FFI] ✅ Set gateway IP: {}.{}.{}.{}\n", .{
+        (gateway_ip >> 24) & 0xFF, (gateway_ip >> 16) & 0xFF, (gateway_ip >> 8) & 0xFF, gateway_ip & 0xFF,
+    });
 }
 
 /// Check if there are pending ARP replies to send

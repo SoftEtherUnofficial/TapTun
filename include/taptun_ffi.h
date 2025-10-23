@@ -134,6 +134,32 @@ int taptun_translator_pop_arp_reply(
     size_t out_buffer_size
 );
 
+/**
+ * Manually set our IP address
+ * 
+ * Required for ARP reply generation. When handle_arp is enabled,
+ * TapTun needs to know our IP address to respond to ARP requests.
+ * Call this after receiving DHCP configuration.
+ * 
+ * @param handle Translator handle
+ * @param ip IP address in network byte order (big endian)
+ */
+void taptun_translator_set_our_ip(
+    TapTunTranslator* handle,
+    uint32_t ip
+);
+
+/**
+ * Manually set gateway IP address
+ * 
+ * @param handle Translator handle
+ * @param gateway_ip Gateway IP address in network byte order (big endian)
+ */
+void taptun_translator_set_gateway_ip(
+    TapTunTranslator* handle,
+    uint32_t gateway_ip
+);
+
 #ifdef __cplusplus
 }
 #endif
