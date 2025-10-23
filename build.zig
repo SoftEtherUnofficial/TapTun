@@ -27,6 +27,14 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    // Export C FFI module for iOS/Android integration
+    const c_ffi_module = b.addModule("taptun_c_ffi", .{
+        .root_source_file = b.path("src/c_ffi.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    c_ffi_module.addImport("taptun", taptun_module);
+
     // Add iOS SDK include paths for @cImport
     if (ios_sdk_path) |sdk| {
         const ios_include = b.fmt("{s}/usr/include", .{sdk});
