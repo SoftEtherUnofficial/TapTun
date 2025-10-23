@@ -1,5 +1,4 @@
 .{
-    .fingerprint = 0x45a6117515f1a372,
     .name = "taptun",
     .version = "0.1.0",
     .minimum_zig_version = "0.15.0",
