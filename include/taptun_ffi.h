@@ -104,6 +104,36 @@ int taptun_translator_get_gateway_mac(
     uint8_t* out_mac
 );
 
+/**
+ * Check if there are pending ARP replies to send
+ * 
+ * When handle_arp is enabled, TapTun generates ARP replies internally.
+ * This function checks if any replies are queued and ready to send.
+ * 
+ * @param handle Translator handle
+ * @return 1 if ARP replies available, 0 if not
+ */
+int taptun_translator_has_arp_reply(TapTunTranslator* handle);
+
+/**
+ * Get next queued ARP reply (complete Ethernet frame)
+ * 
+ * Retrieves and removes the next ARP reply from the queue.
+ * The returned frame is a complete Ethernet frame (typically 42-60 bytes)
+ * ready to send back to the server.
+ * 
+ * @param handle Translator handle
+ * @param out_frame Output buffer for Ethernet frame
+ * @param out_buffer_size Size of output buffer
+ * @return Length of Ethernet frame (>0), 0 if no replies available,
+ *         -1 on error, -2 if buffer too small
+ */
+int taptun_translator_pop_arp_reply(
+    TapTunTranslator* handle,
+    uint8_t* out_frame,
+    size_t out_buffer_size
+);
+
 #ifdef __cplusplus
 }
 #endif

@@ -21,7 +21,7 @@ pub export fn taptun_translator_create(our_mac: [*]const u8) ?*TapTunTranslator 
         .our_mac = mac,
         .learn_ip = true,
         .learn_gateway_mac = true,
-        .handle_arp = true,
+        .handle_arp = true, // MUST handle ARP - Android/iOS cannot process L2 protocols!
         .verbose = false, // Disable verbose logging for performance
     }) catch {
         gpa.destroy(translator);
@@ -191,4 +191,53 @@ pub export fn taptun_translator_get_gateway_mac(
     }
 
     return 0;
+}
+
+/// Check if there are pending ARP replies to send
+/// @param handle: Translator handle
+/// @return 1 if ARP replies available, 0 if not
+pub export fn taptun_translator_has_arp_reply(handle: ?*TapTunTranslator) c_int {
+    const translator: *taptun.L2L3Translator = @ptrCast(@alignCast(handle orelse return 0));
+    return if (translator.hasPendingArpReply()) 1 else 0;
+}
+
+/// Get next queued ARP reply (Ethernet frame)
+/// @param handle: Translator handle
+/// @param out_frame: Output buffer for Ethernet frame
+/// @param out_buffer_size: Size of output buffer
+/// @return Length of Ethernet frame (typically 42-60 bytes), 0 if no replies, -1 on error, -2 if buffer too small
+pub export fn taptun_translator_pop_arp_reply(
+    handle: ?*TapTunTranslator,
+    out_frame: [*]u8,
+    out_buffer_size: usize,
+) c_int {
+    const translator: *taptun.L2L3Translator = @ptrCast(@alignCast(handle orelse {
+        std.debug.print("[TapTun C FFI] ERROR: pop_arp_reply called with NULL handle\n", .{});
+        return -1;
+    }));
+
+    // Check if there are any replies
+    if (!translator.hasPendingArpReply()) {
+        return 0; // No replies available
+    }
+
+    // Pop the next ARP reply
+    const arp_frame = translator.popArpReply() orelse {
+        std.debug.print("[TapTun C FFI] ERROR: pop_arp_reply returned null despite hasArpReply=true\n", .{});
+        return -1;
+    };
+    defer gpa.free(arp_frame); // Free after copying
+
+    // Validate buffer size
+    if (arp_frame.len > out_buffer_size) {
+        std.debug.print("[TapTun C FFI] ERROR: ARP reply too large: {d} > {d}\n", .{ arp_frame.len, out_buffer_size });
+        return -2; // Buffer too small
+    }
+
+    // Copy ARP reply to output buffer
+    @memcpy(out_frame[0..arp_frame.len], arp_frame);
+
+    std.debug.print("[TapTun C FFI] ✅ pop_arp_reply: {d} bytes ARP reply ready to send\n", .{arp_frame.len});
+
+    return @intCast(arp_frame.len);
 }
