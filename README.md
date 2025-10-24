@@ -7,7 +7,7 @@ A high-performance, cross-platform TAP/TUN interface library written in Zig with
 - **TUN (Layer 3)**: Operates at the IP layer. Handles raw IP packets (no Ethernet headers).
   - Point-to-point interface
   - Used for VPN clients, routing
-  - Examples: OpenVPN (TUN mode), WireGuard
+  - Examples: SoftEtherVPN, OpenVPN (TUN mode), WireGuard
 
 - **TAP (Layer 2)**: Operates at the Ethernet layer. Handles full Ethernet frames.
   - Bridge-capable interface
