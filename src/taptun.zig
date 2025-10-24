@@ -18,18 +18,21 @@ pub const DhcpClient = @import("dhcp_client.zig").DhcpClient;
 pub const DhcpPacket = @import("dhcp_client.zig").DhcpPacket;
 
 // C FFI exports (for iOS/Android packet adapters)
-pub const c_ffi = @import("c_ffi.zig");
+// DISABLED: SoftEtherClient provides its own C wrapper in taptun_wrapper.zig
+// to avoid symbol collisions. Uncomment if building TapTun as standalone library.
+// pub const c_ffi = @import("c_ffi.zig");
 
 // Force compilation and export of C FFI functions
-comptime {
-    _ = c_ffi.taptun_translator_create;
-    _ = c_ffi.taptun_translator_destroy;
-    _ = c_ffi.taptun_ethernet_to_ip;
-    _ = c_ffi.taptun_ip_to_ethernet;
-    _ = c_ffi.taptun_translator_stats;
-    _ = c_ffi.taptun_translator_has_gateway_mac;
-    _ = c_ffi.taptun_translator_get_gateway_mac;
-}
+// DISABLED: See above
+// comptime {
+//     _ = c_ffi.taptun_translator_create;
+//     _ = c_ffi.taptun_translator_destroy;
+//     _ = c_ffi.taptun_ethernet_to_ip;
+//     _ = c_ffi.taptun_ip_to_ethernet;
+//     _ = c_ffi.taptun_translator_stats;
+//     _ = c_ffi.taptun_translator_has_gateway_mac;
+//     _ = c_ffi.taptun_translator_get_gateway_mac;
+// }
 
 // High-level adapter (combines device + translator)
 pub const TunAdapter = @import("tun_adapter.zig").TunAdapter;
@@ -77,5 +80,6 @@ pub const TapTunError = error{
 test {
     std.testing.refAllDecls(@This());
     // Force compilation of C FFI exports
-    _ = c_ffi;
+    // DISABLED: See c_ffi comment above
+    // _ = c_ffi;
 }
