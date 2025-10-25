@@ -206,8 +206,11 @@ fn buildForTarget(
 
     const resolved_target = b.resolveTargetQuery(query);
 
-    // Check if building for iOS
+    // Check if building for mobile platforms (iOS/Android)
     const is_ios = resolved_target.result.os.tag == .ios;
+    const is_android = resolved_target.result.os.tag == .linux and
+        (resolved_target.result.abi == .android or resolved_target.result.abi == .androideabi);
+    const is_mobile = is_ios or is_android;
 
     // Determine iOS SDK path if needed
     const ios_sdk_path = if (is_ios) blk: {
@@ -222,9 +225,16 @@ fn buildForTarget(
         }
     } else null;
 
+    // For mobile platforms, use c_ffi.zig as root (exports C symbols)
+    // For desktop platforms, use taptun.zig as root (pure Zig)
+    const root_source = if (is_mobile)
+        b.path("src/c_ffi.zig")
+    else
+        b.path("src/taptun.zig");
+
     // Create module for this target
     const target_module = b.addModule(b.fmt("taptun-{s}", .{triple}), .{
-        .root_source_file = b.path("src/taptun.zig"),
+        .root_source_file = root_source,
         .target = resolved_target,
         .optimize = optimize,
     });
